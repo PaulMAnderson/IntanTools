@@ -1,4 +1,4 @@
-function medianTrace = CAR_HP_Intan(intanHeaderPath, runFilter)
+function filteredData = CAR_HP_Intan(intanHeaderPath, runFilter)
 % Subtracts median of each channel, then subtracts median of each time
 % point and also high-pass filters at 300 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
@@ -58,37 +58,37 @@ else
 end
 fid    = fopen(filename,'r');
 fidOut = fopen(outFilename,'w');
-filteredData = zeros(numChannels, numSamples,'int16');
+
+amplifierMap = memmapfile(filename,...
+'Format', {
+'int16', [numChannels numSamples], 'data'
+});
+
+% filteredData = zeros(numChannels,numSamples,'int16');
 
 %% Loop through the chunks
-
 for chunkI = 1:numChunks
     tic     
     fprintf('Loading Chunk %d of %d... \n',chunkI,numChunks)
     if chunkI == 1
         startPoint = 1;
         endPoint   = chunkSize;
-        chunk = fread(fid,[numChannels chunkSize+bufferSize],'*int16');
-        chunk = [zeros(numChannels,bufferSize) chunk];
+        chunk = amplifierMap.Data.data(:,1:chunkSize+bufferSize);
+        chunk = [zeros(numChannels,bufferSize,'int16') chunk];
     elseif chunkI == numChunks
-        startPoint = numSamples - (chunkSize - 1);
+        startPoint = (chunkSize * (chunkI-1)) + 1;
         endPoint   = numSamples;
-        offset     = (chunkSize * numChannels * 2) ...
-                   + (bufferSize * numChannels * 2);
-        fseek(fid,-offset,'eof');
-        chunk = fread(fid,[numChannels inf],'*int16');
+        chunk      =  amplifierMap.Data.data(:,...
+            chunkSize * (chunkI-1) + 1 - bufferSize : numSamples);
         lastChunkSize = size(chunk,2);
         if lastChunkSize < chunkSize + 2 * bufferSize
             chunk = [chunk zeros(numChannels, ...
-            (chunkSize + 2 * bufferSize) - lastChunkSize)];
+            (chunkSize + 2 * bufferSize) - lastChunkSize,'int16')];
         end
     else
-%         offset = (((chunkSize * numChannels * 2) * (chunkI - 1)) + 1) ...
-%                - (bufferSize * numChannels * 2);
-%         fseek(fid,offset,'bof');
-        offset = (bufferSize * numChannels * 2) * 2; % Go back 2 times the buffer length
-        fseek(fid,-offset,'cof');
-        chunk = fread(fid,[numChannels chunkSize+2*bufferSize],'*int16');
+        chunk = amplifierMap.Data.data(:,...
+            chunkSize * (chunkI-1) + 1 - bufferSize : ...
+             chunkSize*chunkI  + bufferSize);
         startPoint = (chunkSize * (chunkI-1)) + 1;
         endPoint   = chunkSize * (chunkI);
     end
@@ -105,10 +105,15 @@ for chunkI = 1:numChunks
     end
     %% Write out the data
     
-    fwrite(fidOut,chunk(:,bufferSize+1:end-bufferSize),'int16');    
+    if chunkI == numChunks 
+        fwrite(fidOut,chunk(:,bufferSize+1:lastChunkSize),'int16');   
+    else    
+        fwrite(fidOut,chunk(:,bufferSize+1:end-bufferSize),'int16');    
+    end
     % Optionally combine the data here
-%     filteredData(:,startPoint:endPoint) = ...
-%         chunk(:, bufferSize+1:end-bufferSize);
+
+       % filteredData(:,startPoint:endPoint) = ...
+       %    chunk(:, bufferSize+1:end-bufferSize);
 toc
 end
 

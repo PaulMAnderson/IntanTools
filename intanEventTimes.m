@@ -42,6 +42,15 @@ end
 
 numDigitalInChans = length(intanRec.board_dig_in_channels);
 
+% Check for wire inputs - digital in 9-16, treat these as 8 bit input
+try
+    if strcmp(intanRec.board_dig_in_channels(end).native_channel_name, 'DIGITAL-IN-16') ...
+        && strcmp(intanRec.board_dig_in_channels(end-7).native_channel_name, 'DIGITAL-IN-09')
+        wireIn = true;    
+        numDigitalInChans = length(intanRec.board_dig_in_channels) - 8;
+    end
+end
+
 % load timestamps
 fid = fopen([timestampsFile.folder filesep timestampsFile.name],'r');
 timestamps = fread(fid,[1, inf], 'int32');
@@ -63,44 +72,67 @@ if numDigitalInChans > 0
     digitalInData = zeros(numDigitalInChans,length(digitalInWord));
 
     for chanI = 1:numDigitalInChans
-       chanID = intanRec.board_dig_in_channels(chanI).native_order;
-       digitalInData(chanI,:) = (bitand(digitalInWord, 2^chanID) > 0); % ch has a value of 0-15 here
+        chanID = intanRec.board_dig_in_channels(chanI).native_order;
+        digitalInData(chanI,:) = (bitand(digitalInWord, 2^chanID) > 0); % ch has a value of 0-15 here       
+    end
+    
+    if wireIn
+        bitCode = bitshift(digitalInWord,-8);
+        % Takes just the last 8 channels output as binary
+    end
+end
+
+%% Process Data
+
+% Find event onsets and offsets
+if numDigitalInChans > 0 & ~isempty(digitalInData)
+    eventOn    = cell(1, numDigitalInChans);
+    eventOff   = cell(1, numDigitalInChans);
+    numEvents  = 0;
+
+    for chanI = 1:numDigitalInChans
+        digChanges = find(sign(diff(digitalInData(chanI,:))));
+        if isempty(digChanges)
+            warning(['No events detected on event channel ' num2str(chanI) '...'])
+        else
+
+            digChanges = digChanges + 1; % accounts for the missing timestamp from diff
+            if digitalInData(chanI,digChanges(1))
+                eventOn{chanI} = digChanges(1:2:end);
+                eventOff{chanI} = digChanges(2:2:end);
+            else
+                eventOn{chanI}  = digChanges(2:2:end);
+                eventOff{chanI} = digChanges(1:2:end);     
+            end
+        end
+        numEvents = numEvents + length(eventOn{chanI});
     end
 
-    % load timestamps
-    fid = fopen([timestampsFile.folder filesep timestampsFile.name],'r');
-    timestamps = fread(fid,[1, inf], 'int32');
-    fclose(fid);
-
-    %% Process Data
-
-    % Find event onsets and offsets
-    if ~isempty(digitalInData)
-        eventOn    = cell(1, numDigitalInChans);
-        eventOff   = cell(1, numDigitalInChans);
-        numEvents  = 0;
-
-        for chanI = 1:numDigitalInChans
-            digChanges = find(sign(diff(digitalInData(chanI,:))));
-            if isempty(digChanges)
-                warning(['No events detected on event channel ' num2str(chanI) '...'])
+    if wireIn
+        chanI = chanI + 1;
+        bitChanges = find(sign(diff(bitCode)));
+        if isempty(bitChanges)
+            warning('No events detected in bitCode...')
+            wireIn = false;
+        else
+            bitChanges = bitChanges + 1; % accounts for the missing timestamp from diff
+            if bitCode(bitChanges(1))
+                eventOn{chanI}  = bitChanges(1:2:end);
+                eventOff{chanI} = bitChanges(2:2:end);
             else
-
-                digChanges = digChanges + 1; % accounts for the missing timestamp from diff
-                if digitalInData(digChanges(1))
-                    eventOn{chanI} = digChanges(1:2:end);
-                    eventOff{chanI} = digChanges(2:2:end);
-                else
-                    eventOn{chanI}  = digChanges(2:2:end);
-                    eventOff{chanI} = digChanges(1:2:end);     
-                end
+                eventOn{chanI}  = bitChanges(2:2:end);
+                eventOff{chanI} = bitChanges(1:2:end);     
             end
-            numEvents = numEvents + length(eventOn{chanI});
         end
+        
+        if length(eventOn{chanI}) > length(eventOff{chanI})
+            eventOff{chanI}(end+1) = length(bitCode);
+        end
+        numEvents = numEvents + length(eventOn{chanI});
     end
 
     % create event structure
-    eventData(numEvents) = struct('Type',[],'Latency',[],'Time',[],'Duration',[]);
+    eventData(numEvents) = struct('type',[],'latency',[],'duration',[]);
 
     % Calculate sampling interval in ms
     samplingInterval = 1000 / intanRec.frequency_parameters.board_dig_in_sample_rate;
@@ -111,18 +143,29 @@ if numDigitalInChans > 0
     eventCount = 1;
     for chanI = 1:numDigitalInChans
         for eventI = 1:length(eventOn{chanI})
-            eventData(eventCount).Type     = chanI; % Maybe want to set this to intanRec.board_dig_in_channels.custom_channel_name or order?
-            eventData(eventCount).Latency  = eventOn{chanI}(eventI);
-            eventData(eventCount).Time     = secTimestamps(eventOn{chanI}(eventI));
-            eventData(eventCount).Duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
+            eventData(eventCount).type     = intanRec.board_dig_in_channels(chanI).native_order + 1001;
+            % Native numbering starts at 0, the 1000 gets us away from 8
+            % bit binary event numbers
+            eventData(eventCount).latency  = eventOn{chanI}(eventI);
+            eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
 
             eventCount = eventCount + 1;
         end
     end
 
+   if wireIn
+       chanI = chanI + 1;
+        for eventI = 1:length(eventOn{chanI})
+            eventData(eventCount).type     = bitCode(eventOn{chanI}(eventI));
+            eventData(eventCount).latency  = eventOn{chanI}(eventI);
+            eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
+            eventCount = eventCount + 1;
+        end
+    end
+    
     % sort events by time
 
-    [~, eventIdx] = sort([eventData.Latency]);
+    [~, eventIdx] = sort([eventData.latency]);
     eventData     = eventData(eventIdx);
 else
     eventData = [];

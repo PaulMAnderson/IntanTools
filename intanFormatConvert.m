@@ -1,94 +1,204 @@
-function [EEG] = intan2EEGLAB(filepath)
-% Function to import intan recording controller files into matlab in EEGLAB format
+function intanRec = intanFormatConvert(filepath)
+% Function to import intan recording controller files into matlab in a binary format
 
 %% File IO
-
 if nargin > 0
-    [fileParts, ~] = strsplit(filepath,filesep);
+    [fileParts, matches] = strsplit(filepath,filesep);
     file = fileParts{end};
-    filepath = strjoin(fileParts(1:end-1) , filesep);
-    filepath = [filepath filesep];
+    recPath = strjoin(fileParts(1:end-1) , filesep);
+    recPath = [recPath filesep];
 end
 
 if nargin == 0
-    [file, filepath, filterindex] = ...
-    uigetfile('*.rhd', 'Select an RHD2000 Header File', 'MultiSelect', 'off');
+    [file, recPath, filterindex] = ...
+    uigetfile('*.rhd', 'Select an RHD2000 Data File', 'MultiSelect', 'off');
+end
+
+allfiles = true;
+
+% Matching the filename
+recFiles = dir([recPath filesep file(1:end-17) '*.rhd']);
+if length(recFiles) > 1
+    % parse filename for time of recording - Check that they are consecutive
+    for recI = 1:length(recFiles)
+         recTime(recI) = datetime(recFiles(recI).name(end-16:end-4),'InputFormat','yyMMdd_HHmmss');
+    end
+
+    assert(~any(minutes(diff(recTime)) > 1.1), ['Detected files are not consecutive' ...
+        char(10) 'try removing other recordings from this folder'])      
+
+    files2Load = {recFiles.name};
+    file = files2Load{1};
+else 
+    allfiles = false;
 end
 
 
-%% Load Data
+%% Load the first file and determine what data to write...
 
-% Load Header Info
-intanRec = intanHeader([filepath file]);
-if exist([filepath 'amplifier_CAR_HP.dat'],'file')
-    amplifierDataFile = dir([filepath 'amplifier_CAR_HP.dat']);
-elseif exist([filepath 'amplifier_CAR.dat'],'file')
-    amplifierDataFile = dir([filepath 'amplifier_CAR.dat']);
+disp('Loading...');
+% info.rhd - If there is any data at all we need the header so yes
+if exist('info.rhd','file')
+    error('info.rhd file exists in this directory, remove it before retrying');
 else
-    amplifierDataFile = dir([filepath 'amplifier.dat']);
-end
-eventDataFile     = dir([filepath 'digitalin.dat']);
-timestampsFile    = dir([filepath 'time.dat']);
-
-% Load Event and Time info
-[eventData, timestamps] = intanEventTimes(intanRec, eventDataFile, timestampsFile, true);
-
-% Load Matlab file with recording info
-mfile = dir('*OptoTagging*.mat');
-try
-    load(mfile.name)
-catch
-    warning('Unable to load matlab file containing recrording session parameters');
+    intanRec = loadIntanRecData(recPath, file, true);
 end
 
-% Load amplifier (channel) data
+% determine which data types are present and create files for them
 
-numAmpChans = length(intanRec.amplifier_channels);
-num_samples = amplifierDataFile.bytes/(numAmpChans * 2); % int16 = 2 bytes
-fid         = fopen([amplifierDataFile.folder filesep amplifierDataFile.name], 'r');
-ampData     = fread(fid, [numAmpChans   , num_samples], '*int16'); 
-fclose(fid);
-ampData     = ampData  * 0.195; % convert to microvolts
-ampData     = single(ampData);
-
-
-%% setup empty EEG struct
-EEG = struct('setname',[],'filename',[],'filepath',[],'pnts',[],'nbchan',[], ...
-    'trials',[],'srate',[],'xmin',[],'xmax',[],'data',[],'icawinv',[], ...
-    'icasphere',[],'icaweights',[],'icaact',[],'event',[],'epoch',[], ...
-    'chanlocs',[],'chaninfo',[],'comments',[],'ref',[],'saved',[]);
-
-% assign values to EEG struct
-EEG.srate = intanRec.frequency_parameters.amplifier_sample_rate;
-
-EEG.times = timestamps;
-
-EEG.setname    = 'Raw data';
-EEG.filepath   = filepath;
-EEG.filename   = file;
-EEG.nbchan     = length(intanRec.amplifier_channels);
-EEG.trials     = 1;
-EEG.xmin       = EEG.times(1);
-EEG.xmax       = EEG.times(end);
-
-EEG.data = ampData;
-clear ampData
-for chanI = 1:length(intanRec.amplifier_channels)
-    EEG.chanlocs(chanI).labels = intanRec.amplifier_channels(chanI).custom_channel_name;
+% Timestamp data file: time.dat - if there is any data at all we also need
+% this
+if ~exist('time.dat','file')
+    timeID = fopen('time.dat','w');
+else
+    error('time.dat file exists in this directory, remove it before retrying');
 end
 
-EEG.event = eventData;
+% Amplifier data file: amplifier.dat
+if ~isempty(intanRec.amplifier_channels)
+    if ~exist('amplifier.dat','file')
+        ampID = fopen('amplifier.dat','w');
+    else
+        error('amplifier.dat file exists in this directory, remove it before retrying');
+    end
+else
+    ampID = false;
+end
 
-% main function end - intan2EEGLAB
+% Auxiliary input data file: auxiliary.dat
+if ~isempty(intanRec.aux_input_channels)
+    if ~exist('auxiliary.dat','file')
+        auxID = fopen('auxiliary.dat','w');
+    else
+        error('auxiliary.dat file exists in this directory, remove it before retrying');
+    end
+else
+     auxID = false;
+end
+
+% Supply voltage data file: supply.dat
+if ~isempty(intanRec.supply_voltage_channels)
+    if ~exist('supply.dat','file')
+        supplyID = fopen('supply.dat','w');
+    else
+        error('supply.dat file exists in this directory, remove it before retrying');
+    end
+else
+     supplyID = false;
+end
+
+% Board ADC input data file: analogin.dat
+if ~isempty(intanRec.board_adc_channels)
+    if ~exist('analogin.dat','file')
+        adcID = fopen('analogin.dat','w');
+    else
+        error('analogin.dat file exists in this directory, remove it before retrying');
+    end
+else
+     adcID = false;
+end
+
+% Board digital input data file: digitalin.dat
+if ~isempty(intanRec.board_dig_in_channels)
+    if ~exist('digitalin.dat','file')
+        digInID = fopen('digitalin.dat','w');
+    else
+        error('digitalin.dat file exists in this directory, remove it before retrying');
+    end
+else
+     digInID = false;
+end
+
+% Board digital output data file: digitalout.dat
+if ~isempty(intanRec.board_dig_out_channels)
+    if ~exist('digitalout.dat','file')
+        digOutID = fopen('digitalout.dat','w');
+    else
+        error('digitalout.dat file exists in this directory, remove it before retrying');
+    end
+else
+    digOutID = false;
+end
+
+%% Loop through all the files and write data out
+
+% start with the currently loaded file
+% Write timestamps
+fwrite(timeID,intanRec.t_amplifier,'int32');
+if ampID
+   fwrite(ampID,intanRec.amplifier_data,'int16'); 
+end
+if auxID
+    fwrite(auxID,intanRec.aux_input_data,'uint16'); 
+end
+if supplyID
+    fwrite(supplyID,intanRec.supply_voltage_data,'uint16'); 
+end 
+if digOutID
+    fwrite(digOutID,intanRec.aux_input_data,'uint16'); 
+end    
+if adcID
+    fwrite(adcID,intanRec.board_adc_data,'uint16'); 
+end  
+if digInID
+    fwrite(digInID,intanRec.board_dig_in_raw,'uint16');     
+end  
+if digOutID
+    fwrite(digInID,intanRec.board_dig_out_raw,'uint16');     
+end
+
+if allfiles
+    for fileI = 2:length(files2Load)
+        
+        %%
+        fprintf('\n');
+        disp(['Loading file ' num2str(fileI) ' of ' num2str(length(files2Load)) '...']);
+        nextRec = loadIntanRecData(recPath, files2Load{fileI});
+        
+        disp('Writing data...');
+        fwrite(timeID,nextRec.t_amplifier,'int32');
+        if ampID
+           fwrite(ampID,nextRec.amplifier_data,'int16'); 
+        end
+        if auxID
+            fwrite(auxID,nextRec.aux_input_data,'uint16'); 
+        end
+        if supplyID
+            fwrite(supplyID,nextRec.supply_voltage_data,'uint16'); 
+        end 
+        if digOutID
+            fwrite(digOutID,nextRec.aux_input_data,'uint16'); 
+        end    
+        if adcID
+            fwrite(adcID,nextRec.board_adc_data,'uint16'); 
+        end  
+        if digInID
+            fwrite(digInID,nextRec.board_dig_in_raw,'uint16');     
+        end  
+        if digOutID
+            fwrite(digInID,nextRec.board_dig_out_raw,'uint16');     
+        end
+               
+        clear nextRec
+    end
+end
+
+
+fclose('all');
+% main function end - intan2binary
 end
 
 
 
 %% Helper functions
-function [intanRec] = loadIntanRecData(path, file)
+function [intanRec] = loadIntanRecData(recOath, file, copyHeader)
 % The following code comes from 'read_Intan_RHD2000_file.m'
 
-    filename = [path,file];
+    if nargin < 3
+        copyHeader = false;
+    end
+
+    filename = [recOath,file];
     fid = fopen(filename, 'r');
 
     s = dir(filename);
@@ -342,6 +452,15 @@ function [intanRec] = loadIntanRecData(path, file)
         data_present = 1;
     end
 
+    % Write out the initial header data here
+    if copyHeader
+        headerID = fopen('info.rhd','w');
+        offset = ftell(fid);
+        fseek(fid,0,'bof');
+        fwrite(headerID,fread(fid,offset));
+    end
+    
+    % calculate the size of the rest of the data
     num_data_blocks = bytes_remaining / bytes_per_block;
 
     num_amplifier_samples = num_samples_per_data_block * num_data_blocks;
@@ -464,17 +583,18 @@ function [intanRec] = loadIntanRecData(path, file)
         end
 
         % Scale voltage levels appropriately.
-        intanRec.amplifier_data = 0.195 * (intanRec.amplifier_data - 32768); % units = microvolts
-        intanRec.aux_input_data = 37.4e-6 * intanRec.aux_input_data; % units = volts
-        intanRec.supply_voltage_data = 74.8e-6 * intanRec.supply_voltage_data; % units = volts
-        if (eval_board_mode == 1)
-            intanRec.board_adc_data = 152.59e-6 * (intanRec.board_adc_data - 32768); % units = volts
-        elseif (eval_board_mode == 13) % Intan Recording Controller
-            intanRec.board_adc_data = 312.5e-6 * (intanRec.board_adc_data - 32768); % units = volts    
-        else
-            intanRec.board_adc_data = 50.354e-6 * intanRec.board_adc_data; % units = volts
-        end
-        intanRec.temp_sensor_data = intanRec.temp_sensor_data / 100; % units = deg C
+        % Disabled as we are just writing data back out
+        % intanRec.amplifier_data = 0.195 * (intanRec.amplifier_data - 32768); % units = microvolts
+        % intanRec.aux_input_data = 37.4e-6 * intanRec.aux_input_data; % units = volts
+        % intanRec.supply_voltage_data = 74.8e-6 * intanRec.supply_voltage_data; % units = volts
+%         if (eval_board_mode == 1)
+%             intanRec.board_adc_data = 152.59e-6 * (intanRec.board_adc_data - 32768); % units = volts
+%         elseif (eval_board_mode == 13) % Intan Recording Controller
+%             intanRec.board_adc_data = 312.5e-6 * (intanRec.board_adc_data - 32768); % units = volts    
+%         else
+%             intanRec.board_adc_data = 50.354e-6 * intanRec.board_adc_data; % units = volts
+%         end
+%         intanRec.temp_sensor_data = intanRec.temp_sensor_data / 100; % units = deg C
 
         % Check for gaps in timestamps.
         num_gaps = sum(diff(intanRec.t_amplifier) ~= 1);
@@ -485,33 +605,33 @@ function [intanRec] = loadIntanRecData(path, file)
                 num_gaps);
         end
 
-        % Scale time steps (units = seconds).
-        intanRec.t_amplifier = intanRec.t_amplifier / sample_rate;
-        intanRec.t_aux_input = intanRec.t_amplifier(1:4:end);
-        intanRec.t_supply_voltage = intanRec.t_amplifier(1:num_samples_per_data_block:end);
-        intanRec.t_board_adc = intanRec.t_amplifier;
-        intanRec.t_dig = intanRec.t_amplifier;
-        intanRec.t_temp_sensor = intanRec.t_supply_voltage;
+%         % Scale time steps (units = seconds).
+%         intanRec.t_amplifier = intanRec.t_amplifier / sample_rate;
+%         intanRec.t_aux_input = intanRec.t_amplifier(1:4:end);
+%         intanRec.t_supply_voltage = intanRec.t_amplifier(1:num_samples_per_data_block:end);
+%         intanRec.t_board_adc = intanRec.t_amplifier;
+%         intanRec.t_dig = intanRec.t_amplifier;
+%         intanRec.t_temp_sensor = intanRec.t_supply_voltage;
 
         % If the software notch filter was selected during the recording, apply the
         % same notch filter to amplifier data here.
-        if (notch_filter_frequency > 0)
-            fprintf(1, 'Applying notch filter...\n');
-
-            print_increment = 10;
-            percent_done = print_increment;
-            for i=1:num_amplifier_channels
-                intanRec.amplifier_data(i,:) = ...
-                    notch_filter(intanRec.amplifier_data(i,:), sample_rate, notch_filter_frequency, 10);
-
-%                 fraction_done = 100 * (i / num_amplifier_channels);
-%                 if (fraction_done >= percent_done)
-%                     fprintf(1, '%d%% done...\n', percent_done);
-%                     percent_done = percent_done + print_increment;
-%                 end
-
-            end
-        end
+%         if (notch_filter_frequency > 0)
+%             fprintf(1, 'Applying notch filter...\n');
+% 
+%             print_increment = 10;
+%             percent_done = print_increment;
+%             for i=1:num_amplifier_channels
+%                 intanRec.amplifier_data(i,:) = ...
+%                     notch_filter(intanRec.amplifier_data(i,:), sample_rate, notch_filter_frequency, 10);
+% 
+% %                 fraction_done = 100 * (i / num_amplifier_channels);
+% %                 if (fraction_done >= percent_done)
+% %                     fprintf(1, '%d%% done...\n', percent_done);
+% %                     percent_done = percent_done + print_increment;
+% %                 end
+% 
+%             end
+%         end
     end
 
 % end of function  

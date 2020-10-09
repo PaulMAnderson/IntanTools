@@ -134,32 +134,41 @@ amplifierMap = memmapfile(amplifierFilePath,...
 setappdata(handles.figure1,'amplifierMap',amplifierMap);
 
 % Load the timestamps and events if they exist
+[eventData, timestamps] = intanEventTimes(intanRec, ...
+    fileStruct.eventFile, fileStruct.timestampFile, true);
 
+setappdata(handles.figure1,'eventData',eventData);
+setappdata(handles.figure1,'timestamps',timestamps);
            
-if getappdata(handles.figure1,'mfile')
-    try
-        mfiles = dir('*.mat');
-        load(mfiles.name,'trial')
-        setappdata(handles.figure1,'trial',trial)
-        if isfield(trial,'Electrode')
-            setappdata(handles.figure1,'Electrode',trial.Electrode)
-        end
-    end
-end
-setappdata(handles.figure1,'Filtered',0);
+recInfo.times = timestamps([1 end]);
+setappdata(handles.figure1,'recInfo',recInfo);
+
+% if getappdata(handles.figure1,'mfile')
+%     try
+%         mfiles = dir('*.mat');
+%         load(mfiles.name,'trial')
+%         setappdata(handles.figure1,'trial',trial)
+%         if isfield(trial,'Electrode')
+%             setappdata(handles.figure1,'Electrode',trial.Electrode)
+%         end
+%     end
+% end
+
 SetupAxes(handles)
 
 
 
 function SetupAxes(handles)
 
-EEG = getappdata(handles.figure1,'EEG');
-% DroppedSamplesCheck(EEG)
-XMax = EEG.xmax;
-NChans = EEG.nbchan;
+intanRec  = getappdata(handles.figure1,'intanRec');
+recInfo   = getappdata(handles.figure1,'recInfo');
+eventData = getappdata(handles.figure1,'eventData');
 
-PlotSettings.Stats    = CalculateStats(EEG);
-PlotSettings.Channels = {EEG.chanlocs.labels};
+XMax = recInfo.times(2);
+numChans = recInfo.numChans;
+
+PlotSettings.Stats    = CalculateStats(getappdata(handles.figure1,'amplifierMap'));
+PlotSettings.Channels = {intanRec.amplifier_channels.custom_channel_name};
 PlotSettings.ScaleFactor = str2num(get(handles.YScale,'String'));
 
 
@@ -171,21 +180,21 @@ else
     XWidth = XMax;
 end
 
-if NChans >= 64
+if numChans >= 64
     ChanHeight = 32;
-elseif NChans >= 32
+elseif numChans >= 32
     ChanHeight = 16;
-elseif NChans >= 16
+elseif numChans >= 16
     ChanHeight = 8;
 else
-    ChanHeight = NChans;
+    ChanHeight = numChans;
 end
 
 PlotSettings.XPosition    = 0; 
 PlotSettings.XMax         = XMax;
 PlotSettings.XWidth       = XWidth;
 PlotSettings.ChanPosition = 1;
-PlotSettings.NChans       = NChans;
+PlotSettings.numChans     = numChans;
 PlotSettings.ChanHeight   = ChanHeight;
 
 set(handles.ChannelRange_Value,'String',num2str(PlotSettings.ChanHeight));
@@ -207,7 +216,7 @@ set(handles.DataAxesX_Slider,'max',SliderMax, 'SliderStep',SliderSteps);
 
 % Setup Y Axis Slider
 Y_Slider_Value = get(handles.DataAxesY_Slider,'Value');
-PossibleSteps = PlotSettings.NChans - PlotSettings.ChanHeight;
+PossibleSteps = PlotSettings.numChans - PlotSettings.ChanHeight;
 
 if Y_Slider_Value > PossibleSteps
     set(handles.DataAxesY_Slider,'Value',PossibleSteps);
@@ -221,57 +230,59 @@ else
 end
 
 drawDataPlot(handles);
-set(handles.RecInfo_Channel_Text,'String',num2str(PlotSettings.NChans));
+
+
+set(handles.RecInfo_Channel_Text,'String',num2str(PlotSettings.numChans));
 set(handles.RecInfo_Length_Text,'String',num2str(PlotSettings.XMax));
 
-if isempty(EEG.event)
+if isempty(eventData)
     set(handles.RecInfo_Event_Text,'String','NA');
 else
-    set(handles.RecInfo_Event_Text,'String',[num2str(length(EEG.event)) ' events of ' ...
-        num2str(length(unique([EEG.event.type]))) ' types']);
+    set(handles.RecInfo_Event_Text,'String',[num2str(length(eventData.event)) ' events of ' ...
+        num2str(length(unique([eventData.event.type]))) ' types']);
     drawTimelinePlot(handles)
 end
 
 % Setup Channel Map Plots
 
-Electrode = getappdata(handles.figure1,'Electrode');
-LoadedChannels = getappdata(handles.figure1,'LoadedChannels');
-
-
-
-if ~isempty(Electrode)
-% Use the Electrode information to draw this channel plot...
-
-ElectrodeCheckerbox(handles,Electrode)
-
-% cables = unique(Electrode.Cable(LoadedChannels));
+% Electrode = getappdata(handles.figure1,'Electrode');
+% LoadedChannels = getappdata(handles.figure1,'LoadedChannels');
 % 
-% for cable = 1:length(cables)
-%     switch cables(cable)
-%         case 1
-%             current_channels = find(Electrode.Cable(LoadedChannels) == 1);
-%             electrode_checkerbox = generate_electrode_checkerbox(current_channels, handles);
-%             pcolor(handles.ChannelSelection_Axes1, 1:17, 1:5, electrode_checkerbox);
-%             set(handles.ChannelSelection_Axes1,'CLim',[0 10],'YDir','reverse','YTickLabel',[],'XTickLabel',[])
-%             colormap(handles.ChannelSelection_Axes1,generate_electrode_colormap)
-%             text(handles.ChannelSelection_Axes1,1.25,1.5,'1')
-%         case 2
+% 
+% 
+% if ~isempty(Electrode)
+% % Use the Electrode information to draw this channel plot...
+% 
+% ElectrodeCheckerbox(handles,Electrode)
+% 
+% % cables = unique(Electrode.Cable(LoadedChannels));
+% % 
+% % for cable = 1:length(cables)
+% %     switch cables(cable)
+% %         case 1
+% %             current_channels = find(Electrode.Cable(LoadedChannels) == 1);
+% %             electrode_checkerbox = generate_electrode_checkerbox(current_channels, handles);
+% %             pcolor(handles.ChannelSelection_Axes1, 1:17, 1:5, electrode_checkerbox);
+% %             set(handles.ChannelSelection_Axes1,'CLim',[0 10],'YDir','reverse','YTickLabel',[],'XTickLabel',[])
+% %             colormap(handles.ChannelSelection_Axes1,generate_electrode_colormap)
+% %             text(handles.ChannelSelection_Axes1,1.25,1.5,'1')
+% %         case 2
+% %             
+% %         case 3
+% %             
+% %         case 4
+% %     end
+% % end
 %             
-%         case 3
-%             
-%         case 4
-%     end
+% 
+% 
+% 
+% %     
+% %     
+% % else
+% %     % Just guess? Or plot some defaults
+% %     
 % end
-            
-
-
-
-%     
-%     
-% else
-%     % Just guess? Or plot some defaults
-%     
-end
 
 function ElectrodeCheckerbox(handles,Electrode)
 
@@ -406,10 +417,10 @@ electrode_colormap = ...
             
             
 
-function Stats = CalculateStats(EEG)
+function Stats = CalculateStats(amplifierMap)
 
 pc = 5/100; % Remove 5% of the most extreme data
-data = EEG.data(1,:); % just compute on 1 channel
+data = single(amplifierMap.Data.data(1,:) * 0.195); % just compute on 1 channel
 zlow = quantile(data,(pc / 2));   % low  quantile
 zhi  = quantile(data,1 - pc / 2); % high quantile
 tndx = find((data >= zlow & data <= zhi & ~isnan(data)));
@@ -424,18 +435,6 @@ Stats.SD  = std(data);
 
 
 
-function DroppedSamplesCheck(EEG)
-
-getappdata(handles.figure1,'PlotSettings');
-
-trueSampleInterval = 1./EEG.srate;
-SampleIntervals = diff(EEG.times);
-DroppedSamples = find(SampleIntervals>2*trueSampleInterval);
-
-if isempty(droppedSamples)
-  
-end
-
 
 function drawTimelinePlot(handles)
 
@@ -443,7 +442,7 @@ function drawTimelinePlot(handles)
 EEG = getappdata(handles.figure1,'EEG');
 PlotSettings = getappdata(handles.figure1,'PlotSettings');
 
-UniqueEvents = unique([EEG.event.type]);
+UniqueEvents = unique([eventData.event.type]);
 if length(UniqueEvents)< 3; UniqueEvents = [UniqueEvents 998 999]; end
 cmap = cbrewer('div','Spectral',length(UniqueEvents));
 
@@ -453,10 +452,10 @@ hold(handles.Timeline_Axes,'on')
 
 axes(handles.Timeline_Axes)
 
-for j = 1:length(EEG.event)
+for j = 1:length(eventData.event)
     
-    line(gca, [(EEG.event(j).latency)./EEG.srate (EEG.event(j).latency)./EEG.srate],...
-        [0 1],'Color',cmap(UniqueEvents==EEG.event(j).type,:),'LineWidth',0.5,'HitTest','off')
+    line(gca, [(eventData.event(j).latency)./EEG.srate (eventData.event(j).latency)./EEG.srate],...
+        [0 1],'Color',cmap(UniqueEvents==eventData.event(j).type,:),'LineWidth',0.5,'HitTest','off')
     
 end
 
@@ -469,32 +468,33 @@ set(handles.Timeline_Axes,'XLim',[0 PlotSettings.XMax],'YTick',[]);
 drawTimelineMarker(handles)
 
 function drawTimelineMarker(handles)
-
-Xlims = get(handles.Timeline_Axes,'XLim');
-
-
-PlotSettings = getappdata(handles.figure1,'PlotSettings');
-cla(handles.Timeline_Marker_Axes);
-set(handles.Timeline_Marker_Axes,'XLim',Xlims);
-
-rectangle(handles.Timeline_Marker_Axes, 'Position', [PlotSettings.XPosition 0 PlotSettings.XWidth 1], 'FaceColor',[0 .5 .5 .5], 'EdgeColor','b')...   %'FaceColor', [0 .5 .5]) %[0.34,0.46,1 0.5])
-
+% tic
+% Xlims = get(handles.Timeline_Axes,'XLim');
+% 
+% PlotSettings = getappdata(handles.figure1,'PlotSettings');
+% cla(handles.Timeline_Marker_Axes);
+% set(handles.Timeline_Marker_Axes,'XLim',Xlims);
+% 
+% rectangle(handles.Timeline_Marker_Axes, 'Position', [PlotSettings.XPosition 0 PlotSettings.XWidth 1], 'FaceColor',[0 .5 .5 .5], 'EdgeColor','b')   %'FaceColor', [0 .5 .5]) %[0.34,0.46,1 0.5])
+% toc
 
     
 
 function drawDataPlot(handles)
 
 PlotSettings = getappdata(handles.figure1,'PlotSettings');
-EEG          = getappdata(handles.figure1,'EEG');
-Electrode    = getappdata(handles.figure1,'Electrode');
+recInfo      = getappdata(handles.figure1,'recInfo');
+amplifierMap = getappdata(handles.figure1,'amplifierMap');
+timestamps   = getappdata(handles.figure1,'timestamps');
+% Electrode    = getappdata(handles.figure1,'Electrode');
 
 % Need to redo this to actually calculate it from the Chanel Selections
-PlotChannelIdx = 1:size(EEG.data,1);
+PlotChannelIdx = PlotSettings.ChanPosition:PlotSettings.ChanHeight;
 
 % Need to calculate how many lines to plot & how to scale them
 
-XAxesStart = round(PlotSettings.XPosition.*EEG.srate+1);
-XAxesSpread = round(XAxesStart + (PlotSettings.XWidth.*EEG.srate));
+XAxesStart = round(PlotSettings.XPosition.*recInfo.sRate+1);
+XAxesSpread = round(XAxesStart + (PlotSettings.XWidth.*recInfo.sRate));
 
 YSpread  = 2*PlotSettings.ScaleFactor*PlotSettings.Stats.tSD; % Calculates the YSpread for each plot as 2 * the ScaleFactor
 YPadding = YSpread./4; % Units to pad the top and bottom of the display by
@@ -502,24 +502,26 @@ YAxis.Centres(1) = PlotSettings.Stats.tM; % Log the centre point for the first p
 
 %% Generate Data needed
 
-data = EEG.data(PlotChannelIdx,XAxesStart:XAxesSpread);
-
-
+data = double(amplifierMap.Data.data(PlotChannelIdx,XAxesStart:XAxesSpread));
 
 if get(handles.RereferenceData,'Value') % Check whether to rereference the plot
     data = rereferenceData(data, handles);
 end
    
+if get(handles.applyFilter,'Value') % Check whether to filter the data
+    data = filterData(data,handles);
+end
     
 %% begin plotting
+tic
 cla(handles.DataAxes)
 
-plot(handles.DataAxes,EEG.times(XAxesStart:XAxesSpread),data(1,:));
+plot(handles.DataAxes,timestamps(XAxesStart:XAxesSpread),data(1,:));
 hold(handles.DataAxes,'on')
 
 for chan = 2:length(PlotChannelIdx)
 
-    plot(handles.DataAxes,EEG.times(XAxesStart:XAxesSpread),(data(chan,:) - (YSpread * (chan - 1) + 0.1)));
+    plot(handles.DataAxes,timestamps(XAxesStart:XAxesSpread),(data(chan,:) - (YSpread * (chan - 1) + 0.1)));
     YAxis.Centres(chan) = PlotSettings.Stats.tM - (YSpread * (chan - 1) + 0.1);
 end
 
@@ -531,17 +533,17 @@ hold(handles.DataAxes,'off')
 if get(handles.PlotEvents_Checkbox,'Value')
     
   
-    latencies = [EEG.event.latency]./EEG.srate;
-    CurrentEvents = find(latencies >= EEG.times(XAxesStart) &  latencies <= EEG.times(XAxesSpread));
-    UniqueEvents = unique([EEG.event.type]);
+    latencies = [eventData.event.latency]./recInfo.sRate;
+    CurrentEvents = find(latencies >= timestamps(XAxesStart) &  latencies <= timestamps(XAxesSpread));
+    UniqueEvents = unique([eventData.event.type]);
     cmap = cbrewer('div','Spectral',length(UniqueEvents));
     
     YLims = get(handles.DataAxes,'YLim');
     
     for j = 1:length(CurrentEvents)
         
-        XPoint = (EEG.event(CurrentEvents(j)).latency./EEG.srate);        
-        line(handles.DataAxes,[XPoint XPoint],YLims, 'Color',cmap(UniqueEvents==EEG.event(CurrentEvents(j)).type,:),...
+        XPoint = (eventData.event(CurrentEvents(j)).latency./recInfo.sRate);        
+        line(handles.DataAxes,[XPoint XPoint],YLims, 'Color',cmap(UniqueEvents==eventData.event(CurrentEvents(j)).type,:),...
             'LineStyle','--','LineWidth',1.5);
     end
        
@@ -553,7 +555,7 @@ if get(handles.ShowSpikes,'Value')
     spikes = getappdata(handles.figure1,'spikes');
     hold(handles.DataAxes,'on')
     for chan = 1:length(spikes)
-        visible = find(spikes(chan).times>EEG.times(XAxesStart) & spikes(chan).times<EEG.times(XAxesSpread));
+        visible = find(spikes(chan).times>timestamps(XAxesStart) & spikes(chan).times<timestamps(XAxesSpread));
         for spike = 1:length(visible)
             scatter(handles.DataAxes, spikes(chan).times(visible(spike)), YAxis.Centres(chan)-YSpread*.15,'r*')
         end
@@ -580,7 +582,7 @@ set(handles.DataAxes,'YTick',fliplr(YAxis.Centres),'YTickLabels',fliplr(PlotSett
 hold(handles.DataAxes,'off')
 
 
-
+toc
 
 
 
@@ -719,13 +721,11 @@ function DataAxesX_Slider_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 
-
 PlotSettings = getappdata(handles.figure1,'PlotSettings');
 PlotSettings.XPosition = get(hObject,'Value');
 set(handles.TimeStart_Value,'String',num2str(get(hObject,'Value')));
 setappdata(handles.figure1,'PlotSettings',PlotSettings);
 TimeStart_Value_Callback(handles.TimeStart_Value, [], handles);
-
 
 % --- Executes during object creation, after setting all properties.
 function DataAxesX_Slider_CreateFcn(hObject, eventdata, handles)
@@ -748,16 +748,16 @@ function DataAxesY_Slider_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 
-
-PlotSettings = getappdata(handles.figure1,'PlotSettings');
-YValue = round(get(handles.DataAxesY_Slider,'Value'));
-YMax   = get(handles.DataAxesY_Slider,'Max');
-YMin   = get(handles.DataAxesY_Slider,'Min');
-
-YLim = [PlotSettings.YAxis.Centres(YMax - YValue + PlotSettings.ChanHeight) - PlotSettings.YAxis.YSpread./2 ...
-    PlotSettings.YAxis.Centres(YMax - YValue + 1) + PlotSettings.YAxis.YSpread./2];
-
-set(handles.DataAxes,'YLim',YLim);
+% 
+% PlotSettings = getappdata(handles.figure1,'PlotSettings');
+% YValue = round(get(handles.DataAxesY_Slider,'Value'));
+% YMax   = get(handles.DataAxesY_Slider,'Max');
+% YMin   = get(handles.DataAxesY_Slider,'Min');
+% 
+% YLim = [PlotSettings.YAxis.Centres(YMax - YValue + PlotSettings.ChanHeight) - PlotSettings.YAxis.YSpread./2 ...
+%     PlotSettings.YAxis.Centres(YMax - YValue + 1) + PlotSettings.YAxis.YSpread./2];
+% 
+% set(handles.DataAxes,'YLim',YLim);
 
 
 
@@ -785,8 +785,8 @@ function ChannelRange_Value_Callback(hObject, eventdata, handles)
 
 PlotSettings = getappdata(handles.figure1,'PlotSettings');
 NewChanHeight = str2num(get(hObject,'String'));
-if NewChanHeight > PlotSettings.NChans
-    PlotSettings.ChanHeight = PlotSettings.NChans;
+if NewChanHeight > PlotSettings.numChans
+    PlotSettings.ChanHeight = PlotSettings.numChans;
     set(hObject,'String',num2str(PlotSettings.ChanHeight));
 else
     PlotSettings.ChanHeight = NewChanHeight;
@@ -796,7 +796,7 @@ setappdata(handles.figure1,'PlotSettings',PlotSettings);
 Y_Slider_Value = get(handles.DataAxesY_Slider,'Value');
 Y_Slider_Min   = get(handles.DataAxesY_Slider,'Min');
 Y_Slider_Max   = get(handles.DataAxesY_Slider,'Max');
-PossibleSteps = PlotSettings.NChans - PlotSettings.ChanHeight;
+PossibleSteps = PlotSettings.numChans - PlotSettings.ChanHeight;
 Y_Value = PossibleSteps - (Y_Slider_Max - Y_Slider_Value);
 
 
@@ -1088,7 +1088,7 @@ if getappdata(handles.figure1,'Filtered')
     end
     
     for chan = 1:EEG.nbchan
-        spikes(chan) = spike_detect(EEG.data(chan,:), EEG.times, EEG.srate, 1);
+        spikes(chan) = spike_detect(EEG.data(chan,:), timestamps, EEG.srate, 1);
     end
     setappdata(handles.figure1,'spikes',spikes);
     set(handles.SpikeDetect,'String','Run Spike Detection')
@@ -1112,380 +1112,45 @@ end
     
 function data = rereferenceData(data, handles)
 
-Electrode    = getappdata(handles.figure1,'Electrode');
 PlotSettings = getappdata(handles.figure1,'PlotSettings');
-channels   = str2num(char(PlotSettings.Channels))';
-dataChannels(channels) = 1:length(channels);
-electrodes = Electrode.Cable(channels);
-cables     = unique(electrodes);
 
 switch get(handles.ReferenceSelect,'Value')
     case 1 % Use electrode mean
-        for j = 1:length(cables)
-            reference = mean(data(electrodes==cables(j),:),1);
-            data(electrodes==cables(j),:) = bsxfun(@minus, data(electrodes==cables(j),:), reference);
-        end
+        data = bsxfun(@minus, data, median(data,1));
     case 2 % Use shank mean
-        for j = 1:length(cables)
-            currentChannels = channels(Electrode.Cable(channels) == cables(j));
-            shanks = unique(Electrode.Shank(currentChannels));
-            for k = 1:length(shanks)
-                reference = mean(data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:),1);
-                data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:) = ...
-                    bsxfun(@minus, data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:), ...
-                    reference);
-            end
-        end 
+%         for j = 1:length(cables)
+%             currentChannels = channels(Electrode.Cable(channels) == cables(j));
+%             shanks = unique(Electrode.Shank(currentChannels));
+%             for k = 1:length(shanks)
+%                 reference = mean(data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:),1);
+%                 data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:) = ...
+%                     bsxfun(@minus, data(Electrode.Cable(channels)== cables(j) & Electrode.Shank(channels) == shanks(k),:), ...
+%                     reference);
+%             end
+%         end 
     case 3 % Use Nearest Neighbours
-        refData = data;
-        for j = 1:length(channels)     
-
-            refChans = intersect(find(Electrode.Cable==Electrode.Cable(channels(j))), channels); % channels on same electrode that are loaded
-            refChans = refChans(refChans~=channels(j));                      % Remove the actual channel
-            neighbours = knnsearch([Electrode.X(refChans)' Electrode.Y(refChans)'], ...
-            [Electrode.X(channels(j)) Electrode.Y(channels(j))],'k',3); % find the 3 closest neighbours (i.e. tetrode...)
-            reference = mean(data(dataChannels(refChans(neighbours)),:),1);
-            refData(j,:) = bsxfun(@minus, data(j,:),reference);
-
-        end
-        data = refData; clear refData;
+%         refData = data;
+%         for j = 1:length(channels)     
+% 
+%             refChans = intersect(find(Electrode.Cable==Electrode.Cable(channels(j))), channels); % channels on same electrode that are loaded
+%             refChans = refChans(refChans~=channels(j));                      % Remove the actual channel
+%             neighbours = knnsearch([Electrode.X(refChans)' Electrode.Y(refChans)'], ...
+%             [Electrode.X(channels(j)) Electrode.Y(channels(j))],'k',3); % find the 3 closest neighbours (i.e. tetrode...)
+%             reference = mean(data(dataChannels(refChans(neighbours)),:),1);
+%             refData(j,:) = bsxfun(@minus, data(j,:),reference);
+% 
+%         end
+%         data = refData; clear refData;
 end
 
-    
-    
-function electrode = electrode_geometry(electrodeType)
+function data = filterData(data,handles)
 
-%% PFC Details
-PFC.Region(1:64) = {'PFC'};
+loFreq = str2num(get(handles.lowFreqBox,'String'));
+hiFreq = str2num(get(handles.hiFreqBox,'String'));
+recInfo = getappdata(handles.figure1,'recInfo');
+data = eegfilt(data, recInfo.sRate,loFreq, hiFreq);
 
-PFC.ElectrodeNum = [9  10  8  6  13  14  16  1  7  5  12  11  4  2  15  3  25  26  24  22  29  30  32  17  23  21 ...
-    28  27  20  18  31  19  41  42  40  38  45  46  48  33  39  37  44  43  36  34  47  35  57  58  56  54  61  62 ... 
-    64  49  55  53  60  59  52  50  63  51];
-
-PFC.Remap = [45	53	46	54	42	56	41	51	47	48	43	44	50	52	55	49	57	38	60	35	58	37	64	33	36	34 ...	
-    40	39	63	62	59	61	29	3	30	1	26	8	25	5	31	32	27	28	2	6	7	4	14	20	11	22	9	17	...
-    15	24	21	23	18	19	12	10	16	13];
-
-PFC.Shank(1:16)  = 1;
-PFC.Shank(17:32) = 2;
-PFC.Shank(33:48) = 3;
-PFC.Shank(49:64) = 4;
-
-PFC.X = [0  0  0  0  0  0  0  0  0  -16.5  16.5  0  0  -16.5  16.5  0  333  333  333  333  333  333  333  333  333 ...
-    316.5  349.5  333  333  316.5  349.5  333  666  666  666  666  666  666  666  666  666  649.5  682.5  666  666 ...
-    649.5  682.5  666  999  999  999  999  999  999  999  999  999  982.5  1015.5  999  999  982.5  1015.5  999];
-PFC.Y = [0  225  450  900  1125  1575  1800  2025  658.5  675  675  691.5  1333.5  1350  1350  1366.5  0  225  450 ...
-    900  1125  1575  1800  2025  658.5  675  675  691.5  1333.5  1350  1350  1366.5  0  225  450  900  1125  1575 ...
-    1800  2025  658.5  675  675  691.5  1333.5  1350  1350  1366.5  0  225  450  900  1125  1575  1800  2025  658.5 ...
-    675  675  691.5  1333.5  1350  1350  1366.5];
-
-PFC.Connector = [1  2  1  2  1  2  1  2  1  1  1  1  2  2  2  2  2  1  2  1  2  1  2  1  1  1  1  1  2  2  2  2  1  2 ...
-    1  2  1  2  1  2  1  1  1  1  2  2  2  2  2  1  2  1  2  1  2  1  1  1  1  1  2  2  2  2];
-
-PFC.X_Label = repmat([0 0 0 0 0 0 0 0 -60 -90 -10 -60 -60 -90 -10 -60], 1,4);
-PFC.X_Label = PFC.X_Label + (PFC.X+15);
-
-PFC.Y_Label = repmat([0 0 0 0 0 0 0 0 -45 0 0 +45 -45 0 0 +45], 1,4);
-PFC.Y_Label = PFC.Y_Label + PFC.Y;
-
-PFC.SiteType(1:8) = 1; PFC.SiteType(9:16) = 2; PFC.SiteType = repmat(PFC.SiteType, 1, 4);
-
-%% PFC_A Details
-PFC_A.Region(1:32) = {'PFC'};
-PFC_A.ElectrodeNum = [9  8  13  16  7  5  12  11  26  22  30  17  23  21  28  27  41  40  45  48  39  37  44  43 ...
-    58  54  62  49  55  53  60  59];
-PFC_A.Remap        = [23	26	28	21	24	25	22	27	30	18	19	17	31	32	29	20	15	2	4	13	16	1	14	3	...
-    7	6	9	5	11	12	8	10];
-
-PFC_A.Shank(1:8)  = 1;
-PFC_A.Shank(9:16) = 2;
-PFC_A.Shank(17:24) = 3;
-PFC_A.Shank(25:32) = 4;
-
-PFC_A.X = [0  0  0  0  0  -16.5  16.5  0  333  333  333  333  333  316.5  349.5  333  666  666  666  666  666  649.5 ...
-    682.5  666  999  999  999  999  999  982.5  1015.5  999];
-PFC_A.Y = [0  450  1125  1800  658.5  675  675  691.5  225  900  1575  2025  658.5  675  675  691.5  0  450  1125 ...
-    1800  658.5  675  675  691.5  225  900  1575  2025  658.5  675  675  691.5];
-
-PFC_A.Connector = ones(1,32);
-
-PFC_A.SiteType(1:4) = 1; PFC_A.SiteType(5:8) = 2; PFC_A.SiteType = repmat(PFC_A.SiteType, 1, 4);
-
-%% PFC_B Details
-PFC_B.Region(1:32) = {'PFC'};
-PFC_B.ElectrodeNum = [10  6  14  1  4  2  15  3  25  24  29  32  20  18  31  19  42  38  46  33  36  34  47  35  57  ...
-    56  61  64  52  50  63  51];
-PFC_B.Remap        = [27	22	21	26	24	23	28	25	29	19	20	17	32	18	30	31	2	1	13	3	16	14	4	15	...
-    10	6	5	8	11	12	9	7];
-
-PFC_B.Shank(1:8)  = 1;
-PFC_B.Shank(9:16) = 2;
-PFC_B.Shank(17:24) = 3;
-PFC_B.Shank(25:32) = 4;
-
-PFC_B.X = [0  0  0  0  0  -16.5  16.5  0  333  333  333  333  333  316.5  349.5  333  666  666  666  666  666  649.5 ...
-    682.5  666  999  999  999  999  999  982.5  1015.5  999];
-PFC_B.Y = [225  900  1575  2025  1333.5  1350  1350  1366.5  0  450  1125  1800  1333.5  1350  1350  1366.5  225  900 ...
-    1575  2025  1333.5  1350  1350  1366.5  0  450  1125  1800  1333.5  1350  1350  1366.5];
-
-PFC_B.Connector = ones(1,32).*2;
-
-PFC_B.SiteType(1:4) = 1; PFC_B.SiteType(5:8) = 2; PFC_B.SiteType = repmat(PFC_B.SiteType, 1, 4);
-
-%% SC Details
-SC.Region(1:64) = {'SC'};
-SC.ElectrodeNum = [9  8  10  7  11  6  12  5  13  4  14  3  15  2  16  1  25  22  28  24  26  20  29  23  27  18  31  21 ...
-    30  17  32  19  41  40  42  39  43  38  44  37  45  36  46  35  47  34  48  33  57  54  60  56  58  52  61  55  59 ...
-    50  63  53  62  49  64  51];
-SC.Remap        = [50	41	49	42	52	43	51	44	54	45	53	46	56	47	55	48	61	1	57	64	59	3	58	63	60	...
-    8	2	4	62	7	6	5	40	13	39	11	38	12	37	9	36	10	35	14	34	16	33	15	24	27	21	25	23	29	...
-    20	26	22	31	18	28	19	32	17	30];
-    
-SC.Shank(1:16)  = 1;
-SC.Shank(17:32) = 2;
-SC.Shank(33:48) = 3;
-SC.Shank(49:64) = 4;
-
-SC.X = [0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5  349.5 ...
-    333  333  316.5  349.5  333  666  666  666  666  666  666  666  666  666  666  666  666  666  666  666  666  999 ...
-    982.5  1015.5  999  999  982.5  1015.5  999  999  982.5  1015.5  999  999  982.5  1015.5  999];
-SC.Y = [0  125  250  375  500  625  750  875  1000  1125  1250  1375  1500  1625  1750  1875  -66.5  -50  -50  -33.5 ...
-    533.5  550  550  566.5  1133.5  1150  1150  1166.5  1733.5  1750  1750  1766.5  0  125  250  375  500  625  750  875 ...
-    1000  1125  1250  1375  1500  1625  1750  1875  -66.5  -50  -50  -33.5  533.5  550  550  566.5  1133.5  1150  1150 ...
-    1166.5  1733.5  1750  1750  1766.5];
-
-SC.X_Label = repmat([zeros(1,16) -60 -90 -10 -60 -60 -90 -10 -60 -60 -90 -10 -60 -60 -90 -10 -60 ], 1,2);
-SC.X_Label = SC.X_Label + (SC.X+15);
-
-SC.Y_Label = repmat([zeros(1,16) -45 0 0 +45 -45 0 0 +45 -45 0 0 +45 -45 0 0 +45], 1,2);
-SC.Y_Label = SC.Y_Label + SC.Y;
-
-SC.Connector = [2  1  2  1  2  1  2  1  2  1  2  1  2  1  2  1  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  1  2  1  2 ...
-    1  2  1  2  1  2  1  2  1  2  1  2  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1];
-
-SC.SiteType(1:16) = 1; SC.SiteType(17:32) = 2; SC.SiteType = repmat(SC.SiteType, 1, 2);
-
-%% SC_A Details
-SC_A.Region(1:32) = {'SC'};
-SC_A.ElectrodeNum = [8  7  6  5  4  3  2  1  41  42  43  44  45  46  47  48  57  54  60  56  58  52  61  55  59  50 ...
-    63  53  62  49  64  51];
-SC_A.Remap        = [21	28	22	27	23	26	24	25	29	20	30	19	31	18	32	17	5	14	11	13	12	15	7	4	...
-    6	16	8	3	10	1	9	2];
-
-SC_A.Shank(1:8)  = 1;
-SC_A.Shank(9:16) = 3;
-SC_A.Shank(17:32) = 4;
-
-SC_A.X = [0  0  0  0  0  0  0  0  666  666  666  666  666  666  666  666  999  982.5  1015.5  999  999  982.5  1015.5 ...
-    999  999  982.5  1015.5  999  999  982.5  1015.5  999];
-SC_A.Y = [125  375  625  875  1125  1375  1625  1875  0  250  500  750  1000  1250  1500  1750  -66.5  -50  -50  -33.5 ...
-    533.5  550  550  566.5  1133.5  1150  1150  1166.5  1733.5  1750  1750  1766.5];
-
-SC_A.Connector = ones(1,32);
-
-SC_A.SiteType(1:16) = 1; SC_A.SiteType(17:32) = 2;
-
-%% SC_B Details
-SC_B.Region(1:32) = {'SC'};
-SC_B.ElectrodeNum = [9  10  11  12  13  14  15  16  25  22  28  24  26  20  29  23  27  18  31  21  30  17  32  19  40 ...
-    39  38  37  36  35  34  33];
-SC_B.Remap        = [24	25	23	26	22	27	21	28	31	1	29	17	30	2	20	32	19	13	16	15	18	4	14	3	7	...
-    6	11	5	12	10	9	8];
-
-SC_B.Shank(1:8)  = 1;
-SC_B.Shank(9:24) = 2;
-SC_B.Shank(25:32) = 3;
-
-SC_B.X = [0  0  0  0  0  0  0  0  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5 ...
-    349.5  333  666  666  666  666  666  666  666  666];
-SC_B.Y = [0  250  500  750  1000  1250  1500  1750  -66.5  -50  -50  -33.5  533.5  550  550  566.5  1133.5  1150  1150 ...
-    1166.5  1733.5  1750  1750  1766.5  125  375  625  875  1125  1375  1625  1875];
-
-SC_B.Connector = ones(1,32).*2;
-
-SC_B.SiteType(1:8) = 1; SC_B.SiteType(9:24) = 2; SC_B.SiteType(25:32) = 1;
-%% PRC Details
-PRC.Region(1:64) = {'PRC'};
-PRC.ElectrodeNum = [9  8  10  7  11  6  12  5  13  4  14  3  15  2  16  1  25  22  28  24  26  20  29  23  27  18  31  21 ...
-    30  17  32  19  41  40  42  39  43  38  44  37  45  36  46  35  47  34  48  33  57  54  60  56  58  52  61  55  59 ...
-    50  63  53  62  49  64  51];
-PRC.Remap        = [50	41	49	42	52	43	51	44	54	45	53	46	56	47	55	48	61	1	57	64	59	3	58	63	60	8	...
-    2	4	62	7	6	5	40	13	39	11	38	12	37	9	36	10	35	14	34	16	33	15	24	27	21	25	23	29	20	26	...
-    22	31	18	28	19	32	17	30];
-    
-PRC.Shank(1:16)  = 1;
-PRC.Shank(17:32) = 2;
-PRC.Shank(33:48) = 3;
-PRC.Shank(49:64) = 4;
-
-PRC.X = [0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5  349.5 ...
-    333  333  316.5  349.5  333  666  666  666  666  666  666  666  666  666  666  666  666  666  666  666  666  999 ...
-    982.5  1015.5  999  999  982.5  1015.5  999  999  982.5  1015.5  999  999  982.5  1015.5  999];
-PRC.Y = [0  125  250  375  500  625  750  875  1000  1125  1250  1375  1500  1625  1750  1875  483.5  500  500  516.5 ...
-    783.5  800  800  816.5  1083.5  1100  1100  1116.5  1383.5  1400  1400  1416.5  0  125  250  375  500  625  750  875 ...
-    1000  1125  1250  1375  1500  1625  1750  1875  483.5  500  500  516.5  783.5  800  800  816.5  1083.5  1100  1100 ...
-    1116.5  1383.5  1400  1400  1416.5];
-
-PRC.Connector = [2  1  2  1  2  1  2  1  2  1  2  1  2  1  2  1  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  1  2  1  2 ...
-    1  2  1  2  1  2  1  2  1  2  1  2  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1];
-
-PRC.SiteType(1:16) = 1; PRC.SiteType(17:32) = 2; PRC.SiteType = repmat(PRC.SiteType, 1, 2);
-
-%% PRC_A Details
-PRC_A.Region(1:32) = {'PRC'};
-PRC_A.ElectrodeNum = [8  7  6  5  4  3  2  1  41  42  43  44  45  46  47  48  57  54  60  56  58  52  61  55  59  50 ...
-    63  53  62  49  64  51];
-PRC_A.Remap        = [21	28	22	27	23	26	24	25	29	20	30	19	31	18	32	17	5	14	11	13	12	15	7	...
-    4	6	16	8	3	10	1	9	2];
-
-PRC_A.Shank(1:8)  = 1;
-PRC_A.Shank(9:16) = 3;
-PRC_A.Shank(17:32) = 4;
-
-PRC_A.X = [0  0  0  0  0  0  0  0  666  666  666  666  666  666  666  666  999  982.5  1015.5  999  999  982.5  1015.5 ...
-    999  999  982.5  1015.5  999  999  982.5  1015.5  999];
-PRC_A.Y = [125  375  625  875  1125  1375  1625  1875  0  250  500  750  1000  1250  1500  1750  483.5  500  500  516.5 ...
-    783.5  800  800  816.5  1083.5  1100  1100  1116.5  1383.5  1400  1400  1416.5];
-
-PRC_A.Connector = ones(1,32);
-
-PRC_A.SiteType(1:16) = 1; PRC_A.SiteType(17:32) = 2;
-
-%% PRC_B Details
-PRC_B.Region(1:32) = {'PRC'};
-PRC_B.ElectrodeNum = [9  10  11  12  13  14  15  16  25  22  28  24  26  20  29  23  27  18  31  21  30  17  32  19  40 ...
-    39  38  37  36  35  34  33];
-PRC_B.Remap        = [24	25	23	26	22	27	21	28	31	1	29	17	30	2	20	32	19	13	16	15	18	4	14	3	...
-    7	6	11	5	12	10	9	8];
-
-PRC_B.Shank(1:8)  = 1;
-PRC_B.Shank(9:24) = 2;
-PRC_B.Shank(25:32) = 3;
-
-PRC_B.X = [0  0  0  0  0  0  0  0  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5  349.5  333  333  316.5 ...
-    349.5  333  666  666  666  666  666  666  666  666];
-PRC_B.Y = [0  250  500  750  1000  1250  1500  1750  483.5  500  500  516.5  783.5  800  800  816.5  1083.5  1100  1100 ...
-    1116.5  1383.5  1400  1400  1416.5  125  375  625  875  1125  1375  1625  1875];
-
-PRC_B.Connector = ones(1,32).*2;
-
-PRC_B.SiteType(1:8) = 1; PRC_B.SiteType(9:24) = 2; PRC_B.SiteType(25:32) = 1;
-
-%% EType Details
-EType.Region(1:64) = {'VTA'};
-EType.ElectrodeNum = [26  21  35  34  33  25  24  38  37  36  28  23  41  40  39  27  22  44  43  42  30  19  20  46  45 ...
-    32  29  18  17  47  50  48  12  54  53  56  4  13  14  52  51  2  3  16  15  49  1  31  8  11  61  64  63  7  10  60 ...
-    59  62  6  9  55  58  57  5];
-EType.Remap        = [23	28	14	15	16	24	25	11	12	13	21	26	8	9	10	22	27	5	6	7	19	30	29	3	...
-    4	17	20	31	32	2	63	1	37	59	60	57	45	36	35	61	62	47	46	33	34	64	48	18	41	38	52	49	50	...
-    42	39	53	54	51	43	40	58	55	56	44]; 
-    
-EType.Shank(1:16)  = 1;
-EType.Shank(17:32) = 2;
-EType.Shank(33:48) = 3;
-EType.Shank(49:64) = 4;
-
-EType.X = [0  75  5  70  10  65  15  60  20  55  25  50  30  45  35  40  250  325  255  320  260  315  265  310  270  305 ...
-    275  300  280  295  285  290  500  575  505  570  510  565  515  560  520  555  525  550  530  545  535  540  750 ...
-    825  755  820  760  815  765  810  770  805  775  800  780  795  785  790];
-EType.Y = [0  20  40  60  80  100  120  140  160  180  200  220  240  260  280  300  0  20  40  60  80  100  120  140 ...
-    160  180  200  220  240  260  280  300  0  20  40  60  80  100  120  140  160  180  200  220  240  260  280  300  0 ...
-    20  40  60  80  100  120  140  160  180  200  220  240  260  280  300];
-
-EType.Connector = [1  1  2  2  2  1  1  2  2  2  1  1  2  2  2  1  1  2  2  2  1  1  1  2  2  1  1  1  1  2  2  2  1  2 ...
-    2  2  1  1  1  2  2  1  1  1  1  2  1  1  1  1  2  2  2  1  1  2  2  2  1  1  2  2  2  1];
-
-EType.SiteType(1:64) = 1;
-
-%% EType_A Details
-EType_A.Region(1:32) = {'VTA'};
-EType_A.ElectrodeNum = [26  21  25  24  28  23  27  22  30  19  20  32  29  18  17  12  4  13  14  2  3  16  15  1  31  8 ...
-    11  7  10  6  9  5];
-EType_A.Remap        = [12	3	5	13	11	4	6	14	10	2	15	9	7	16	1	19	23	31	18	24	26	17	32	25	8	...
-    21	30	28	20	22	29	27];
-
-EType_A.Shank = [1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  3  3  3  3  3  3  3  3  3  3  4  4  4  4  4  4  4];
-
-EType_A.X = [0  75  65  15  25  50  40  250  260  315  265  305  275  300  280  500  510  565  515  555  525  550  530 ...
-    535  540  750  825  815  765  775  800  790];
-EType_A.Y = [0  20  100  120  200  220  300  0  80  100  120  180  200  220  240  0  80  100  120  180  200  220  240 ...
-    280  300  0  20  100  120  200  220  300];
-
-EType_A.Connector = ones(1,32);
-
-EType_A.SiteType(1:32) = 1;
-
-%% EType_B Details
-EType_B.Region(1:32) = {'VTA'};
-EType_B.ElectrodeNum = [35  34  33  38  37  36  41  40  39  44  43  42  46  45  47  50  48  54  53  56  52  51  49  61 ...
-    64  63  60  59  62  55  58  57];
-EType_B.Remap        = [10	8	9	6	11	7	13	5	12	3	14	4	2	15	16	32	1	30	19	29	31	18	17	23	...
-    25	24	27	22	26	20	28	21];
-
-EType_B.Shank = [1  1  1  1  1  1  1  1  1  2  2  2  2  2  2  2  2  3  3  3  3  3  3  4  4  4  4  4  4  4  4  4];
-
-EType_B.X = [5  70  10  60  20  55  30  45  35  325  255  320  310  270  295  285  290  575  505  570  560  520  545 ...
-    755  820  760  810  770  805  780  795  785];
-EType_B.Y = [40  60  80  140  160  180  240  260  280  20  40  60  140  160  260  280  300  20  40  60  140  160  260 ...
-    40  60  80  140  160  180  240  260  280];
-
-EType_B.Connector = ones(1,32).*2;
-
-EType_B.SiteType(1:32) = 1;
-
-%% Atlas Details
-Atlas.Region(1:32) = {'VTA'};
-Atlas.ElectrodeNum = [16  15  14  13  12  11  10  9  8  7  6  5  4  3  2  1 ...
-    32  31  30  29  28  27  26  25  24  23  22  21  20  19  18  17];
-Atlas.Remap        = [14	11	6	4	2	13	15	10	3	8	1	12	16	...
-    9	5	7	22	19	29	27	20	31	23	18	25	30	21	32	24	17	26	28];
-
-Atlas.Shank(1:16) = 1; Atlas.Shank(17:32) = 2; 
-
-Atlas.X(1:16) = 0; Atlas.X(17:32) = 200; 
-Atlas.Y = repmat(0:150:2250, 1, 2);
-Atlas.Connector = ones(1,32).*1;
-Atlas.SiteType(1:32) = 1;
-
-
-%% EEG Details - Not actually accurate for geometry
-
-EG.Region(1:32) = {'EEG'};
-EG.ElectrodeNum = 1:32;
-EG.Remap        = [9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	...
-    8	7	6	5	4	3	2	1	32	31	30	29	28	27	26	25];
-
-EG.X(1:8)   = 0;
-EG.X(9:16)  = 100;
-EG.X(17:24) = 200;
-EG.X(25:32) = 300;
-
-EG.Y = repmat(0:100:700, 1, 4);
-
-%%  parse input
-switch electrodeType
-    case 'PFC'
-        electrode = PFC;
-    case 'PFC_A'
-        electrode = PFC_A;
-    case 'PFC_B'
-        electrode = PFC_B;
-    case 'SC'
-        electrode = SC;
-    case 'SC_A'
-        electrode = SC_A;
-    case 'SC_B'
-        electrode = SC_B;
-    case 'EType'
-        electrode = EType;
-    case 'EType_A'
-        electrode = EType_A;
-    case 'EType_B'
-        electrode = EType_B;
-    case 'EG'
-        electrode = EG;
-end
-
+   
 
 % --- Executes on selection change in remapElectrodeType.
 function remapElectrodeType_Callback(hObject, eventdata, handles)
