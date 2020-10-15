@@ -43,6 +43,7 @@ end
 numDigitalInChans = length(intanRec.board_dig_in_channels);
 
 % Check for wire inputs - digital in 9-16, treat these as 8 bit input
+wireIn = false;
 try
     if strcmp(intanRec.board_dig_in_channels(end).native_channel_name, 'DIGITAL-IN-16') ...
         && strcmp(intanRec.board_dig_in_channels(end-7).native_channel_name, 'DIGITAL-IN-09')
@@ -147,6 +148,7 @@ if numDigitalInChans > 0 & ~isempty(digitalInData)
             % Native numbering starts at 0, the 1000 gets us away from 8
             % bit binary event numbers
             eventData(eventCount).latency  = eventOn{chanI}(eventI);
+            eventData(eventCount).time     = secTimestamps(eventData(eventCount).latency);
             eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
 
             eventCount = eventCount + 1;
