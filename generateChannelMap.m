@@ -17,7 +17,7 @@ end
 switch lower(type)
     
     case 'poly2-5mm' % This mapping was recieved through email on 07-10-20
-    %% poly2-5mm Detailsš 
+    %% poly2-5mm Details
     electrode.chanMap = [59,2,60,1,6,63,58,3,57,4,7,62,8,61,249,196,241,204,233,...
         212,225,220,229,224,237,216,245,208,253,200,64,5,51,10,52,9,14,...
         55,50,11,49,12,15,54,16,53,199,254,207,246,215,238,23,230,219, ...
@@ -71,7 +71,7 @@ switch lower(type)
             if strcmp(electrode.SiteType{chanCount},'Normal')
                 electrode.kcoords(chanCount) = electrode.Shank(chanCount);
             else
-                electrode.kcoords(chanCount) = electrode.Shank(chanCount) + 8;
+                electrode.kcoords(chanCount) = electrode.Shank(chanCount) + 100;
             end
             electrode.connected(chanCount) = true;
             chanCount = chanCount+1;
@@ -94,8 +94,13 @@ switch lower(type)
     electrode.kcoords   = electrode.kcoords(sortIndx);
     electrode.connected = electrode.connected(sortIndx);
     electrode.Connector = electrode.Connector(sortIndx);
-    electrode.Intan     = electrode.Intan(sortIndx);
-%        
+    electrode.Intan     = electrode.Intan(sortIndx);        
+    
+    % Define Bad Channels - !!!! Specific to animal PMA17 !!!!
+    % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
+    % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
+    badChans = [155 181 190 222]; % B26 B52 B61 B93
+    electrode.connected(badChans) = false;
     
     % Draw the electrode here
     if drawElectrode
@@ -253,6 +258,13 @@ switch lower(type)
     electrode.connected = electrode.connected(sortIndx);
     electrode.Connector = electrode.Connector(sortIndx);
     electrode.Intan     = electrode.Intan(sortIndx);
+    
+    % Define Bad Channels - !!!! Specific to animal PMA18 !!!!
+    % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
+    % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
+    badChans = [78 79 80 113 161]; % A77 A78 A79 A112 B32
+    electrode.connected(badChans) = false;
+    
     
     
    % Draw the electrode here

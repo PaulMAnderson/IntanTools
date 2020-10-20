@@ -1,4 +1,4 @@
-function filteredData = CAR_GPU(intanHeaderPath, chanMap, runFilter)
+function filteredData = CAR_GPU(intanHeaderPath, chanMapPath, runFilter)
 % Subtracts median of each channel, then subtracts median of each time
 % point and can also high-pass filters at 150 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
@@ -47,7 +47,8 @@ if nargin < 2
     goodChans = 1:numChannels;
     % chanMap specifies 'bad' channels to leave out of referenceing etc.
 else
-   [goodChans, ~, ~, kcoords, ~] = loadChanMap(chanMap);
+   load(chanMapPath);
+   goodChans = chanMap(connected);
 end
 % Should add more complex referenceing here - per electrode shank probably
 % would use kcoords values for this 
@@ -112,7 +113,7 @@ for chunkI = 1:numChunks
     end
         
     
-    %% Baseline, Rereference and Filter
+    %% Baseline,
 
     % Use GPU to common average reference and baseline (subtract per channel mean)
     % buffer is portion of data in format timepoints by channels
@@ -123,11 +124,33 @@ for chunkI = 1:numChunks
     dataGPU = single(dataGPU); % convert to float32 so GPU operations are fast
 
     % subtract the mean from each channel
-    dataGPU = dataGPU - mean(dataGPU(:,goodChans), 1); % subtract mean of each channel
+    dataGPU = dataGPU - mean(dataGPU, 1); % subtract mean of each channel
 
-    % CAR, common average referencing by median
+    %% Re-reference
+%     % CAR, common average referencing by median - Old Method
     dataGPU = dataGPU - median(dataGPU(:,goodChans), 2); % subtract median across channels
 
+     % CAR, common average referencing by channel group
+%      referenceGroups = unique(kcoords);
+%      if any(strcmp('Reference',unique(SiteType))) % Check for special Reference channels
+%          referenceGroups(referenceGroups>100) = [];
+%          for refI = 1:length(referenceGroups)
+%              refChans     = kcoords == referenceGroups(refI) + 100;
+%              currentChans = (kcoords == referenceGroups(refI)) | refChans;
+%             % Use the mean of the specific reference channels
+%              dataGPU(:,currentChans) = dataGPU(:,currentChans) - mean(dataGPU(:,refChans),2);
+% %            % Use the median of the whole group
+% %            dataGPU(:,currentChans) = dataGPU(:,currentChans) - median(dataGPU(:,currentChans),2);
+%          end
+%      else
+%          for refI = 1:length(referenceGroups)
+%             currentChans = (kcoords == referenceGroups(refI));
+%             % Use the median of the whole group
+%             dataGPU(:,currentChans) = dataGPU(:,currentChans) - median(dataGPU(:,currentChans),2);
+%          end
+%      end
+     
+     %% Filter
     if runFilter
         [b1, a1] = butter(3, loFreq/sRate*2, 'high'); % the default is to only do high-pass filtering at 150Hz
 

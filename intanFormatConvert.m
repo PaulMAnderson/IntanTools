@@ -1,5 +1,6 @@
 function intanRec = intanFormatConvert(filepath)
-% Function to import intan recording controller files into matlab in a binary format
+% Function to convert per-minute recorded (.rhd) intan recording files into
+% per-signal type files (.dat)
 
 %% File IO
 if nargin > 0

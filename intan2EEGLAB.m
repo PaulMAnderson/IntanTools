@@ -1,28 +1,48 @@
-function [EEG] = intan2EEGLAB(filepath)
+function [EEG] = intan2EEGLAB(filepath,varargin)
 % Function to import intan recording controller files into matlab in EEGLAB format
 
-%% File IO
 
-if nargin > 0
+%% Parse Inputs
+
+if nargin == 0 % Select a file
+    [file, filepath, filterindex] = ...
+    uigetfile('*.rhd', 'Select an RHD2000 Header File', 'MultiSelect', 'off');
+else
     [fileParts, ~] = strsplit(filepath,filesep);
     file = fileParts{end};
     filepath = strjoin(fileParts(1:end-1) , filesep);
     filepath = [filepath filesep];
 end
 
-if nargin == 0
-    [file, filepath, filterindex] = ...
-    uigetfile('*.rhd', 'Select an RHD2000 Header File', 'MultiSelect', 'off');
+if nargin == 1 % Set defaults for filtering and channels to load if not specificed
+    filtered = true;
+    channels = [];   
 end
 
+if nargin > 1 % parse optional inputs
+    argumentI = 1;
+    while argumentI <= size(varargin,2)
+        switch lower(varargin{argumentI})
+            case 'filtered'
+               filtered = varargin{argumentI + 1};
+               argumentI = argumentI + 1;
+            case 'channels'
+                channels = varargin{argumentI + 1};
+                argumentI = argumentI + 1;
+            otherwise
+                error('Unknown argument...')
+        end
+        argumentI = argumentI + 1;
+    end
+end
 
 %% Load Data
 
 % Load Header Info
 intanRec = intanHeader([filepath file]);
-if exist([filepath 'amplifier_CAR_HP.dat'],'file')
+if exist([filepath 'amplifier_CAR_HP.dat'],'file') && filtered
     amplifierDataFile = dir([filepath 'amplifier_CAR_HP.dat']);
-elseif exist([filepath 'amplifier_CAR.dat'],'file')
+elseif exist([filepath 'amplifier_CAR.dat'],'file') && filtered
     amplifierDataFile = dir([filepath 'amplifier_CAR.dat']);
 else
     amplifierDataFile = dir([filepath 'amplifier.dat']);
@@ -30,26 +50,42 @@ end
 eventDataFile     = dir([filepath 'digitalin.dat']);
 timestampsFile    = dir([filepath 'time.dat']);
 
+
+
 % Load Event and Time info
 [eventData, timestamps] = intanEventTimes(intanRec, eventDataFile, timestampsFile, true);
 
-% Load Matlab file with recording info
-mfile = dir('*OptoTagging*.mat');
-try
-    load(mfile.name)
-catch
-    warning('Unable to load matlab file containing recrording session parameters');
-end
+% % Load Matlab file with recording info
+% mfile = dir('*OptoTagging*.mat');
+% try
+%     load(mfile.name)
+% catch
+%     disp('Unable to load matlab file containing recrording session parameters');
+% end
 
 % Load amplifier (channel) data
 
 numAmpChans = length(intanRec.amplifier_channels);
-num_samples = amplifierDataFile.bytes/(numAmpChans * 2); % int16 = 2 bytes
-fid         = fopen([amplifierDataFile.folder filesep amplifierDataFile.name], 'r');
-ampData     = fread(fid, [numAmpChans   , num_samples], '*int16'); 
-fclose(fid);
+if ~exist('channels','var')
+    channels = 1:numAmpChans;
+end
+numSamples = amplifierDataFile.bytes/(numAmpChans * 2); % int16 = 2 bytes
+% Memory mapping method, allows to load specific channels
+amplifierFilePath = [amplifierDataFile.folder filesep amplifierDataFile.name];
+amplifierMap = memmapfile(amplifierFilePath,...
+               'Format', {
+               'int16', [numAmpChans numSamples], 'data'
+               });
+ampData = amplifierMap.Data.data(channels,:);
 ampData     = ampData  * 0.195; % convert to microvolts
 ampData     = single(ampData);
+
+% Original Loading method, just read in the whole file
+% fid         = fopen([amplifierDataFile.folder filesep amplifierDataFile.name], 'r');
+% ampData     = fread(fid, [numAmpChans   , numSamples], '*int16'); 
+% fclose(fid);
+% ampData     = ampData  * 0.195; % convert to microvolts
+% ampData     = single(ampData);
 
 
 %% setup empty EEG struct
@@ -73,8 +109,8 @@ EEG.xmax       = EEG.times(end);
 
 EEG.data = ampData;
 clear ampData
-for chanI = 1:length(intanRec.amplifier_channels)
-    EEG.chanlocs(chanI).labels = intanRec.amplifier_channels(chanI).custom_channel_name;
+for chanI = 1:length(channels)
+    EEG.chanlocs(chanI).labels = intanRec.amplifier_channels(channels(chanI)).custom_channel_name;
 end
 
 EEG.event = eventData;
