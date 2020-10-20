@@ -40,6 +40,9 @@ end
 
 % Load Header Info
 intanRec = intanHeader([filepath file]);
+if ~exist('filtered','var')
+    filtered = true;
+end
 if exist([filepath 'amplifier_CAR_HP.dat'],'file') && filtered
     amplifierDataFile = dir([filepath 'amplifier_CAR_HP.dat']);
 elseif exist([filepath 'amplifier_CAR.dat'],'file') && filtered
