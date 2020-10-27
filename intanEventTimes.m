@@ -160,6 +160,7 @@ if numDigitalInChans > 0 & ~isempty(digitalInData)
         for eventI = 1:length(eventOn{chanI})
             eventData(eventCount).type     = bitCode(eventOn{chanI}(eventI));
             eventData(eventCount).latency  = eventOn{chanI}(eventI);
+            eventData(eventCount).time     = secTimestamps(eventData(eventCount).latency);
             eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
             eventCount = eventCount + 1;
         end
