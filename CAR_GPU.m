@@ -1,4 +1,4 @@
-function filteredData = CAR_GPU(intanHeaderPath, chanMapPath, runFilter)
+function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter)
 % Subtracts median of each channel, then subtracts median of each time
 % point and can also high-pass filters at 150 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
@@ -8,29 +8,39 @@ function filteredData = CAR_GPU(intanHeaderPath, chanMapPath, runFilter)
 
 %% File IO
 
-if nargin < 3
+if nargin < 4
     runFilter = true;
 end
 if nargin > 0
-    [fileParts, ~] = strsplit(intanHeaderPath,filesep);
-    file = fileParts{end};
-    filepath = strjoin(fileParts(1:end-1) , filesep);
-    filepath = [filepath filesep];
+    [headerPath, headerName, headerExt] = fileparts(intanHeaderPath);
+    header = [headerName headerExt];
+    headerPath = [headerPath filesep];
+    
+    [dataPath, dataName, dataExt] = fileparts(rawDataPath);
+    data = [dataName dataExt];
+    dataPath = [dataPath filesep];
 elseif nargin == 0
-    [file, filepath, filterindex] = ...
+    [file, headerPath, filterindex] = ...
     uigetfile('*.rhd', 'Select an RHD2000 Header File', 'MultiSelect', 'off');
 end
 
 % Load Header Info
-intanRec = intanHeader([filepath file]);
+intanRec = intanHeader([headerPath header]);
 
-if ~exist([filepath 'amplifier.dat'])
-    warning('Can''t find amplifier.dat file in header directory...')
-    [amplifierFile, amplifierFilepath, filterindex] = ...
-    uigetfile('*.dat', 'Select the recording .dat file', 'MultiSelect', 'off');
-    amplifierDataStruct = dir([amplifierFilepath amplifierFile]);
-else  
-    amplifierDataStruct = dir([filepath 'amplifier.dat']);
+if ~exist(data, 'file')
+    try 
+        data = [headerPath 'amplifier.dat'];
+        if ~exist(data, 'file')
+            warning('Can''t find data .dat file in header directory...')
+            [amplifierFile, amplifierFilepath, filterindex] = ...
+            uigetfile('*.dat', 'Select the recording .dat file', 'MultiSelect', 'off');
+            amplifierDataStruct = dir([amplifierFilepath amplifierFile]);
+        else  
+            amplifierDataStruct = dir([headerPath 'amplifier.dat']);
+        end
+    end
+else
+    amplifierDataStruct = dir([dataPath data]);
 end
 
 %% Setup Parameters
