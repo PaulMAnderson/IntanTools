@@ -1,4 +1,4 @@
-function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter)
+function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter, outFilename)
 % Subtracts median of each channel, then subtracts median of each time
 % point and can also high-pass filters at 150 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
@@ -7,6 +7,10 @@ function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFi
 % The same directory should contain the 'amplifier.dat' file 
 
 %% File IO
+
+if nargin < 5
+    outputFile = [];
+end
 
 if nargin < 4
     runFilter = true;
@@ -68,15 +72,20 @@ sRate       = intanRec.frequency_parameters.amplifier_sample_rate;
 numChunks   = ceil(numSamples./chunkSize);
 
 filename = [amplifierDataStruct.folder filesep amplifierDataStruct.name];
-if runFilter
-    outFilename = [amplifierDataStruct.folder filesep ...
-                  amplifierDataStruct.name(1:end-4) '_CAR_HP.dat'];
-else
-    outFilename = [amplifierDataStruct.folder filesep ...
-                  amplifierDataStruct.name(1:end-4) '_CAR.dat'];
+if isempty(outFilename)
+    if runFilter
+        outFilename = [amplifierDataStruct.folder filesep ...
+                      amplifierDataStruct.name(1:end-4) '_CAR_HP.dat'];
+    else
+        outFilename = [amplifierDataStruct.folder filesep ...
+                      amplifierDataStruct.name(1:end-4) '_CAR.dat'];
+    end
+    fid    = fopen(filename,'r');
+    fidOut = fopen(outFilename,'w');
+    else
+    fid    = fopen(filename,'r');
+    fidOut = fopen(outFilename,'a');
 end
-fid    = fopen(filename,'r');
-fidOut = fopen(outFilename,'w');
 
 amplifierMap = memmapfile(filename,...
 'Format', {
