@@ -9,7 +9,7 @@ function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFi
 %% File IO
 
 if nargin < 5
-    outputFile = [];
+    outFilename = [];
 end
 
 if nargin < 4
