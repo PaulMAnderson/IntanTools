@@ -19,13 +19,14 @@ if nargin > 0
     [headerPath, headerName, headerExt] = fileparts(intanHeaderPath);
     header = [headerName headerExt];
     headerPath = [headerPath filesep];
-    
     [dataPath, dataName, dataExt] = fileparts(rawDataPath);
     data = [dataName dataExt];
     dataPath = [dataPath filesep];
 elseif nargin == 0
-    [file, headerPath, filterindex] = ...
+    [header, headerPath, ~] = ...
     uigetfile('*.rhd', 'Select an RHD2000 Header File', 'MultiSelect', 'off');
+    data = 'amplifier.dat';
+    dataPath = headerPath;
 end
 
 % Load Header Info
@@ -36,7 +37,7 @@ if ~exist(data, 'file')
         data = [headerPath 'amplifier.dat'];
         if ~exist(data, 'file')
             warning('Can''t find data .dat file in header directory...')
-            [amplifierFile, amplifierFilepath, filterindex] = ...
+            [amplifierFile, amplifierFilepath, ~] = ...
             uigetfile('*.dat', 'Select the recording .dat file', 'MultiSelect', 'off');
             amplifierDataStruct = dir([amplifierFilepath amplifierFile]);
         else  
