@@ -99,7 +99,7 @@ switch lower(type)
     % Define Bad Channels - !!!! Specific to animal PMA17 !!!!
     % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
     % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
-    badChans = [155 181 190 222]; % B26 B52 B61 B93
+    badChans = [155 176 181 190 192 222]; % B26 B52 B61 B93
     electrode.connected(badChans) = false;
     
     % Draw the electrode here
