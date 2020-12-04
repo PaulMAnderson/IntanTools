@@ -1,7 +1,10 @@
-function electrode = generateChannelMap(type,drawElectrode)
+function electrode = generateChannelMap(type, exclude, drawElectrode)
 
-if nargin < 2
+if nargin < 3
     drawElectrode = false;
+end
+if nargin < 2
+    exclude = [];
 end
 
 % Updated on 07-10-2020 with a new mappping recieved from NNx
@@ -99,8 +102,19 @@ switch lower(type)
     % Define Bad Channels - !!!! Specific to animal PMA17 !!!!
     % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
     % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
-    badChans = [155 176 181 190 192 222]; % B26 B52 B61 B93
+    
+    % Now using automatically defined bad channels throuigh impedance
+    % measurements 02-12-2020
+    if isempty(exclude)
+        badChans = [155 176 181 190 192 222]; % B26 B52 B61 B93    
+    else
+        badChans = exclude;
+    end
+    
     electrode.connected(badChans) = false;
+    
+    
+    
     
     % Draw the electrode here
     if drawElectrode
@@ -259,14 +273,18 @@ switch lower(type)
     electrode.Connector = electrode.Connector(sortIndx);
     electrode.Intan     = electrode.Intan(sortIndx);
     
-    % Define Bad Channels - !!!! Specific to animal PMA18 !!!!
-    % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
-    % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
-    badChans = [78 79 80 113 161]; % A77 A78 A79 A112 B32
+    % Define Bad Channels - !!!! Specific to animal PMA18 !!!   
+    % Now using automatically defined bad channels throuigh impedance
+    % measurements
+    if isempty(exclude)
+        badChans = [78 79 80 113 161]; % A77 A78 A79 A112 B32
+    else
+        badChans = exclude;
+    end
+    
     electrode.connected(badChans) = false;
     
-    
-    
+
    % Draw the electrode here
     if drawElectrode
         electrodePlot = scatter(electrode.xcoords,electrode.ycoords,...
