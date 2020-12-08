@@ -149,7 +149,18 @@ for chunkI = 1:numChunks
     %% Re-reference
 %     % CAR, common average referencing by median - Old Method
     dataGPU = dataGPU - median(dataGPU(:,goodChans), 2); % subtract median across channels
-
+    
+    % CAR, common average referencing by 64 channel batches - accounts for
+    % some problems with headstages dropping out
+    for j = 1:4
+        chans = ((j-1)*64)+1:j*64;
+        subGoodChans = chans(connected(chans));
+        if isempty(subGoodChans)
+            continue
+        else
+            dataGPU(:,chans) = dataGPU(:,chans) - median(dataGPU(:,subGoodChans), 2); % subtract median across channels
+        end
+    end
      % CAR, common average referencing by channel group
 %      referenceGroups = unique(kcoords);
 %      if any(strcmp('Reference',unique(SiteType))) % Check for special Reference channels
