@@ -7,6 +7,15 @@ function [eventData, varargout] = intanEventTimes(intanRec, eventDataFile, times
 % still work if its a file path as well
 
 %% Check Inputs
+if nargin == 0
+    try
+        intanRec = intanHeader([pwd filesep 'info.rhd']);
+        eventDataFile = [pwd filesep 'digitalin.dat'];
+        timestampsFile = [pwd filesep 'time.dat'];
+    catch
+        error('Couldn''t find files by default names');
+    end
+end
 
 if nargin < 4  % Output timestamps in seconds unless told not to
    inSeconds = true; 
@@ -34,8 +43,7 @@ if ischar(timestampsFile) || isstring(timestampsFile) || iscellstr(timestampsFil
        error('Error when parsing the timestampsFile string')
    end
 end
-  
-  
+
 %% Load Data
 
 % Get info on Digital In Channels

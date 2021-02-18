@@ -54,7 +54,7 @@ end
 
 loFreq    = 150;
 hiFreq     = 0; % Zero means High-Pass filter
-chunkSize  = 2^18;
+chunkSize  = 2^17;
 bufferSize = 2^10;
 
 numChannels = length(intanRec.amplifier_channels);
