@@ -44,6 +44,16 @@ if ischar(timestampsFile) || isstring(timestampsFile) || iscellstr(timestampsFil
    end
 end
 
+% Check if headerFile is a path or not
+if ischar(intanRec) || isstring(intanRec) || iscellstr(intanRec)
+   try 
+       intanRec = intanHeader([pwd filesep intanRec]);
+   catch
+       error('Error when parsing the header file path')
+   end
+end
+
+
 %% Load Data
 
 % Get info on Digital In Channels
