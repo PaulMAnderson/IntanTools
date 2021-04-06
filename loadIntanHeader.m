@@ -1,12 +1,21 @@
-function intanRec = intanHeader(filepath)
+function intanRec = loadIntanHeader(filepath)
 % Function to import intan recording controller header files into matlab
 
 %% File IO
 if nargin > 0
-    [fileParts, matches] = strsplit(filepath,filesep);
-    file = fileParts{end};
-    filepath = strjoin(fileParts(1:end-1) , filesep);
-    filepath = [filepath filesep];
+    if strcmp(filepath(end-4:end),'rhd')
+        [fileParts, matches] = strsplit(filepath,filesep);
+        file = fileParts{end};
+        filepath = strjoin(fileParts(1:end-1) , filesep);
+        filepath = [filepath filesep];
+    else
+        if exist([filepath filesep 'info.rhd'],'file')
+            file = 'info.rhd';
+            filepath = [filepath filesep];
+        else
+           error('Can''t find header file in provided directory')
+        end
+    end
 end
 
 if nargin == 0
@@ -16,7 +25,7 @@ end
 
 
 %% Load the first file
-intanRec = loadIntanHeader(filepath, file);
+intanRec = readIntanHeader(filepath, file);
 
 if isfield(intanRec,'amplifier_data')
     warning('File contains channel data, this function only loads header information!')
@@ -25,7 +34,7 @@ end
 end
 
 %% Helper functions
-function [intanRec] = loadIntanHeader(fileFolder, file)
+function [intanRec] = readIntanHeader(fileFolder, file)
 % The following code comes from 'read_Intan_RHD2000_file.m'
 
     filename = [fileFolder,file];

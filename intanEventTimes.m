@@ -21,11 +21,17 @@ if nargin < 4  % Output timestamps in seconds unless told not to
    inSeconds = true; 
 end   
 
+if nargin == 1 % assume a diretory was provided and try find files
+   recordingDir = intanRec;
+   intanRec = loadIntanHeader(recordingDir);
+   eventDataFile = [recordingDir filesep 'digitalin.dat'];
+   timestampsFile = [recordingDir filesep 'time.dat'];
+end
+
 % Check if eventDataFile is a path or not
 if isempty(eventDataFile)
-    parseEvents = false;
+    error('Can''t find event data...');
 else
-    parseEvents = true;
     if ischar(eventDataFile) || isstring(eventDataFile) || iscellstr(eventDataFile)
        try 
            eventDataFile = dir(eventDataFile);
