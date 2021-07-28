@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<IntanRHX version="3.0.0" type="ControllerStimRecordUSB2" sampleRate="30 kHz">
+ <ProbeMapSettings backgroundColor="Black">
+  <Page name="Shanks">
+  
+   <Line x1="40" x2="40" y1="20" y2="220"/>
+   <Line x1="40" x2="30" y1="220" y2="230"/>
+   <Line x1="30" x2="30" y1="230" y2="240"/>
+   <Line x1="30" x2="70" y1="240" y2="240"/>
+   <Line x1="70" x2="70" y1="240" y2="230"/>
+   <Line x1="70" x2="60" y1="230" y2="220"/>
+   <Line x1="60" x2="60" y1="220" y2="20"/>
+   <Line x1="60" x2="50" y1="20" y2="0"/>
+   <Line x1="50" x2="40" y1="0" y2="20"/>
+   
+   <Line x1="140" x2="140" y1="20" y2="220"/>
+   <Line x1="140" x2="130" y1="220" y2="230"/>
+   <Line x1="130" x2="130" y1="230" y2="240"/>
+   <Line x1="130" x2="170" y1="240" y2="240"/>
+   <Line x1="170" x2="170" y1="240" y2="230"/>
+   <Line x1="170" x2="160" y1="230" y2="220"/>
+   <Line x1="160" x2="160" y1="220" y2="20"/>
+   <Line x1="160" x2="150" y1="20" y2="0"/>
+   <Line x1="150" x2="140" y1="0" y2="20"/>
+   
+   <Text x="50" y="225" text="A" fontHeight="10" textAlignment="CenterBottom"/>
+   
+   <Text x="150" y="225" text="B" fontHeight="10" textAlignment="CenterBottom"/>
+   
+   <Port name="A" siteShape="Ellipse" siteWidth="5" siteHeight="5">
+    <ElectrodeSite channelNumber="0" x="45" y="180"/>
+    <ElectrodeSite channelNumber="1" x="55" y="180"/>
+    <ElectrodeSite channelNumber="2" x="45" y="170"/>
+    <ElectrodeSite channelNumber="3" x="55" y="170"/>
+    <ElectrodeSite channelNumber="4" x="45" y="160"/>
+    <ElectrodeSite channelNumber="5" x="55" y="160"/>
+    <ElectrodeSite channelNumber="6" x="45" y="150"/>
+    <ElectrodeSite channelNumber="7" x="55" y="150"/>
+    <ElectrodeSite channelNumber="8" x="45" y="140"/>
+    <ElectrodeSite channelNumber="9" x="55" y="140"/>
+    <ElectrodeSite channelNumber="10" x="45" y="130"/>
+    <ElectrodeSite channelNumber="11" x="55" y="130"/>
+    <ElectrodeSite channelNumber="12" x="45" y="120"/>
+    <ElectrodeSite channelNumber="13" x="55" y="120"/>
+    <ElectrodeSite channelNumber="14" x="45" y="110"/>
+    <ElectrodeSite channelNumber="15" x="55" y="110"/>
+    <ElectrodeSite channelNumber="16" x="45" y="100"/>
+    <ElectrodeSite channelNumber="17" x="55" y="100"/>
+    <ElectrodeSite channelNumber="18" x="45" y="90"/>
+    <ElectrodeSite channelNumber="19" x="55" y="90"/>
+    <ElectrodeSite channelNumber="20" x="45" y="80"/>
+    <ElectrodeSite channelNumber="21" x="55" y="80"/>
+    <ElectrodeSite channelNumber="22" x="45" y="70"/>
+    <ElectrodeSite channelNumber="23" x="55" y="70"/>
+    <ElectrodeSite channelNumber="24" x="45" y="60"/>
+    <ElectrodeSite channelNumber="25" x="55" y="60"/>
+    <ElectrodeSite channelNumber="26" x="45" y="50"/>
+    <ElectrodeSite channelNumber="27" x="55" y="50"/>
+    <ElectrodeSite channelNumber="28" x="45" y="40"/>
+    <ElectrodeSite channelNumber="29" x="55" y="40"/>
+    <ElectrodeSite channelNumber="30" x="45" y="30"/>
+    <ElectrodeSite channelNumber="31" x="55" y="30"/>
+   </Port>
+   
+   <Port name="B" siteShape="Ellipse" siteWidth="5" siteHeight="5">
+    <ElectrodeSite channelNumber="0" x="145" y="180"/>
+    <ElectrodeSite channelNumber="1" x="155" y="180"/>
+    <ElectrodeSite channelNumber="2" x="145" y="170"/>
+    <ElectrodeSite channelNumber="3" x="155" y="170"/>
+    <ElectrodeSite channelNumber="4" x="145" y="160"/>
+    <ElectrodeSite channelNumber="5" x="155" y="160"/>
+    <ElectrodeSite channelNumber="6" x="145" y="150"/>
+    <ElectrodeSite channelNumber="7" x="155" y="150"/>
+    <ElectrodeSite channelNumber="8" x="145" y="140"/>
+    <ElectrodeSite channelNumber="9" x="155" y="140"/>
+    <ElectrodeSite channelNumber="10" x="145" y="130"/>
+    <ElectrodeSite channelNumber="11" x="155" y="130"/>
+    <ElectrodeSite channelNumber="12" x="145" y="120"/>
+    <ElectrodeSite channelNumber="13" x="155" y="120"/>
+    <ElectrodeSite channelNumber="14" x="145" y="110"/>
+    <ElectrodeSite channelNumber="15" x="155" y="110"/>
+    <ElectrodeSite channelNumber="16" x="145" y="100"/>
+    <ElectrodeSite channelNumber="17" x="155" y="100"/>
+    <ElectrodeSite channelNumber="18" x="145" y="90"/>
+    <ElectrodeSite channelNumber="19" x="155" y="90"/>
+    <ElectrodeSite channelNumber="20" x="145" y="80"/>
+    <ElectrodeSite channelNumber="21" x="155" y="80"/>
+    <ElectrodeSite channelNumber="22" x="145" y="70"/>
+    <ElectrodeSite channelNumber="23" x="155" y="70"/>
+    <ElectrodeSite channelNumber="24" x="145" y="60"/>
+    <ElectrodeSite channelNumber="25" x="155" y="60"/>
+    <ElectrodeSite channelNumber="26" x="145" y="50"/>
+    <ElectrodeSite channelNumber="27" x="155" y="50"/>
+    <ElectrodeSite channelNumber="28" x="145" y="40"/>
+    <ElectrodeSite channelNumber="29" x="155" y="40"/>
+    <ElectrodeSite channelNumber="30" x="145" y="30"/>
+    <ElectrodeSite channelNumber="31" x="155" y="30"/>
+   </Port>
+   
+  </Page>
+ </ProbeMapSettings>
+</IntanRHX>

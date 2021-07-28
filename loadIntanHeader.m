@@ -2,7 +2,11 @@ function intanRec = loadIntanHeader(filepath)
 % Function to import intan recording controller header files into matlab
 
 %% File IO
-if nargin > 0
+if nargin > 0 && ~isempty(filepath)
+    if isstruct(filepath)
+        file = filepath.name;
+        filepath = [filepath.folder filesep];
+    end
     if strcmp(filepath(end-4:end),'rhd')
         [fileParts, matches] = strsplit(filepath,filesep);
         file = fileParts{end};
@@ -18,7 +22,7 @@ if nargin > 0
     end
 end
 
-if nargin == 0
+if nargin == 0 || isempty(filepath)
     [file, filepath, filterindex] = ...
     uigetfile('*.rhd', 'Select an RHD2000 Data File', 'MultiSelect', 'off');
 end
