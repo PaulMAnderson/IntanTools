@@ -85,10 +85,6 @@ switch lower(type)
         end     
     end
     
-    % Not 100% sure this is correct...
-    electrode.Connector(1:128)   = 1;
-    electrode.Connector(129:256) = 2;
-       
     electrode.name = 'A8x32-poly2-5mm-20s-150-160 IH256';
     
     % sort the electrode Data to start with electrode #1
@@ -100,7 +96,9 @@ switch lower(type)
     electrode.SiteType  = electrode.SiteType(sortIndx);
     electrode.kcoords   = electrode.kcoords(sortIndx);
     electrode.connected = electrode.connected(sortIndx);
-    electrode.Connector = electrode.Connector(sortIndx);
+    % Not 100% sure this is correct...
+    electrode.Connector(1:128)   = 1;
+    electrode.Connector(129:256) = 2;
     electrode.Intan     = electrode.Intan(sortIndx);        
     
     % Define Bad Channels - !!!! Specific to animal PMA17 !!!!
@@ -110,7 +108,7 @@ switch lower(type)
     % Now using automatically defined bad channels throuigh impedance
     % measurements 02-12-2020
     if isempty(exclude)
-        badChans = [155 176 181 190 192 222]; % B26 B52 B61 B93    
+        badChans = []; % [155 176 181 190 192 222]; % B26 B52 B61 B93    
     else
         badChans = exclude;
     end
@@ -258,10 +256,6 @@ switch lower(type)
             chanCount = chanCount+1;
         end     
     end
-    
-        % Not 100% sure this is correct...
-    electrode.Connector(1:128)   = 1;
-    electrode.Connector(129:256) = 2;
        
     electrode.name = 'A8x32-poly2-6mm-30s-200-121 IH256';
     
@@ -274,14 +268,18 @@ switch lower(type)
     electrode.SiteType  = electrode.SiteType(sortIndx);
     electrode.kcoords   = electrode.kcoords(sortIndx);
     electrode.connected = electrode.connected(sortIndx);
-    electrode.Connector = electrode.Connector(sortIndx);
+    % electrode.Connector = electrode.Connector(sortIndx);
+    % Not 100% sure this is correct...
+    electrode.Connector(1:128)   = 1;
+    electrode.Connector(129:256) = 2;
+    
     electrode.Intan     = electrode.Intan(sortIndx);
     
     % Define Bad Channels - !!!! Specific to animal PMA18 !!!   
     % Now using automatically defined bad channels throuigh impedance
     % measurements
     if isempty(exclude)
-        badChans = [78 79 80 113 161]; % A77 A78 A79 A112 B32
+        badChans = []; % [78 79 80 113 161]; % A77 A78 A79 A112 B32
     else
         badChans = exclude;
     end
@@ -314,7 +312,7 @@ switch lower(type)
 %     case 'poly2-5mm' - This is based on the original physical mapping we
 %     recieved, after emailing NNx we recieved a new one... this is what is
 %     currently used 07-10-20
-%     %% poly2-5mm Detailsš 
+%     %% poly2-5mm Detailsï¿½ 
 %     electrode.chanMap = [108,99,106,97,107,100,110,101,112,103,109,102, ...
 %         111,104,209,218,193,202,177,186,161,170,169,162,185,178,201,194,...
 %         217,210,98,105,124,115,122,113,123,116,126,117,128,119,125,118, ...
