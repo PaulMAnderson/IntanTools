@@ -30,7 +30,7 @@ elseif nargin == 0
 end
 
 % Load Header Info
-intanRec = intanHeader([headerPath header]);
+intanRec = loadIntanHeader([headerPath header]);
 
 if ~exist(data, 'file')
     try 
@@ -148,7 +148,7 @@ for chunkI = 1:numChunks
 
     %% Re-reference
 %     % CAR, common average referencing by median - Old Method
-    dataGPU = dataGPU - median(dataGPU(:,goodChans), 2); % subtract median across channels
+    % dataGPU = dataGPU - median(dataGPU(:,goodChans), 2); % subtract median across channels
     
     % CAR, common average referencing by 64 channel batches - accounts for
     % some problems with headstages dropping out

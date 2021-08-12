@@ -15,6 +15,10 @@ if contains(type,'17')
     type = 'poly2-5mm';
 elseif contains(type,'18')
     type = 'poly2-6mm';
+elseif contains(type,'33')
+    type = 'poly2-6mm';
+elseif contains(type,'36')
+    type = 'poly2-5mm';
 end
 
 switch lower(type)

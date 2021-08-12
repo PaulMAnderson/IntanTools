@@ -6,8 +6,7 @@ if nargin > 0 && ~isempty(filepath)
     if isstruct(filepath)
         file = filepath.name;
         filepath = [filepath.folder filesep];
-    end
-    if strcmp(filepath(end-4:end),'rhd')
+    elseif strcmp(filepath(end-2:end),'rhd')
         [fileParts, matches] = strsplit(filepath,filesep);
         file = fileParts{end};
         filepath = strjoin(fileParts(1:end-1) , filesep);

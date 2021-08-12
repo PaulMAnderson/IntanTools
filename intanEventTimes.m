@@ -9,7 +9,7 @@ function [eventData, varargout] = intanEventTimes(intanRec, eventDataFile, times
 %% Check Inputs
 if nargin == 0
     try
-        intanRec = intanHeader([pwd filesep 'info.rhd']);
+        intanRec = loadIntanHeader([pwd filesep 'info.rhd']);
         eventDataFile = [pwd filesep 'digitalin.dat'];
         timestampsFile = [pwd filesep 'time.dat'];
     catch
@@ -173,9 +173,12 @@ if numDigitalInChans > 0 & ~isempty(digitalInData)
             % bit binary event numbers
             eventData(eventCount).latency  = eventOn{chanI}(eventI);
             eventData(eventCount).time     = secTimestamps(eventData(eventCount).latency);
-            eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
-
-            eventCount = eventCount + 1;
+            try
+                eventData(eventCount).duration = (eventOff{chanI}(eventI) - eventOn{chanI}(eventI)) * samplingInterval; % Duration in ms
+            catch % Event doesn't end
+                eventData(eventCount).duration = length(timestamps) - eventData(eventCount).latency;
+            end
+                eventCount = eventCount + 1;
         end
     end
 
