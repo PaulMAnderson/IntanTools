@@ -1,32 +1,87 @@
-function electrode = generateChannelMap(type, exclude, drawElectrode)
+function electrode = generateChannelMap(varargin)
+% Code to generate electrode channel maps for use with kilosort and other
+% purposes. Created from channel maps provided by Neuronexus
 
-if nargin < 3
-    drawElectrode = false;
-end
-if nargin < 2
-    exclude = [];
-end
+% All inputs are optional, if none are provided dialog will allow selection
+% of probe type
+% 'Electrode' : string describing electrode type: 
+%               can be 'poly2-5mm','poly2-6mm' or 'Buzsaki64'
+% 'Animal'    : string giving known animal number, allows automated
+% selection based on recording names: can be 'PMA17,18,33,36,37
+% 'Exclude'   : logical index of channels to registed as 'unconnected' i.e. bad
+% 'Draw'      : generate a figure of the electrode, default = true
 
 % Updated on 07-10-2020 with a new mappping recieved from NNx
+% 64 Channel Buzsaki64 probe added on 06-11-2021
 
-electrodeTypes = {'poly2-5mm','poly2-6mm'};
+%% Parse variable input arguments
 
-if contains(type,'17')
-    type = 'poly2-5mm';
-elseif contains(type,'18')
-    type = 'poly2-6mm';
-elseif contains(type,'33')
-    type = 'poly2-6mm';
-elseif contains(type,'36')
-    type = 'poly2-5mm';
+p = inputParser; % Create object of class 'inputParser'
+
+% define defaults
+defElectrodeType = [];
+defAnimal    = [];
+defExclude   = [];
+defDraw = false;
+
+% define validation functions
+valExclude = @(x) validateattributes(x, {'numeric'},...
+    {'nonempty'});
+valString = @(x) validateattributes(x, {'char','string','cell'},...
+    {'nonempty'});
+
+% validation functions
+addParameter(p, 'Electrode', defElectrodeType, valString);
+addParameter(p, 'Animal', defAnimal, valString);
+
+addParameter(p, 'Exclude', defExclude, valExclude);
+addParameter(p, 'Draw', defDraw, @islogical);
+
+parse(p, varargin{:});
+
+% unpack parser and convert units
+electrodeType   = p.Results.Electrode;
+animal          = p.Results.Animal; 
+exclude         = p.Results.Exclude;
+drawElectrode   =  p.Results.Draw;
+
+clear p
+
+% Check animal 
+
+if ~isempty(animal)
+    if contains(animal,'17')
+        electrodeType = 'poly2-5mm';
+    elseif contains(animal,'18')
+        electrodeType = 'poly2-6mm';
+    elseif contains(animal,'33')
+        electrodeType = 'poly2-6mm';
+    elseif contains(animal,'36')
+        electrodeType = 'poly2-5mm';
+    elseif contains(animal,'37')
+        electrodeType = 'Buzsaki64';
+    end
 end
 
-switch lower(type)
+% Check electrode 
+electrodeTypes = {'poly2-5mm','poly2-6mm','Buzsaki64'};
+if isempty(electrodeType)
+    [indx,tf] = listdlg('PromptString','Choose an electrode type',...
+    'ListString',electrodeTypes, 'SelectionMode','single');
+    
+    assert(tf,'No electrode type chosen, cannot proceed.');
+    
+    electrodeType = electrodeTypes{indx};
+end
+
+electrodeType  = validatestring(electrodeType,electrodeTypes);
+
+switch lower(electrodeType)
     
     case 'poly2-5mm' % This mapping was recieved through email on 07-10-20
         % Updated on 6-0-21 found several missing values...
     %% poly2-5mm Details    
-   electrode.chanMap = [59,2,60,1,6,63,58,3,57,4,7,62,8,61,249,196,241,204,...
+    electrode.chanMap = [59,2,60,1,6,63,58,3,57,4,7,62,8,61,249,196,241,204,...
        233,212,225,220,229,224,237,216,245,208,253,200,64,5,51,10,52,9,14,...
        55,50,11,49,12,15,54,16,53,199,254,207,246,215,238,223,230,219,226,...
        211,234,203,242,195,250,56,13,43,18,44,17,22,47,42,19,41,20,23,46,...
@@ -105,37 +160,15 @@ switch lower(type)
     % Identified through visual inspection and Impedence measurements - Updated 20-10-2020
     % Channels A000-A127 = 1:128, B000-B127 = 129:256; i.e. 155 = 26+1+128
     
-    % Now using automatically defined bad channels throuigh impedance
-    % measurements 02-12-2020
-    if isempty(exclude)
-        badChans = []; % [155 176 181 190 192 222]; % B26 B52 B61 B93    
-    else
-        badChans = exclude;
-    end
+%     % Now using automatically defined bad channels throuigh impedance
+%     % measurements 02-12-2020
+%     if isempty(exclude)
+%         badChans = []; % [155 176 181 190 192 222]; % B26 B52 B61 B93    
+%     else
+%         badChans = exclude;
+%     end
     
-    electrode.connected(badChans) = false;
-    
-    
-    
-    
-    % Draw the electrode here
-    if drawElectrode
-        electrodePlot = scatter(electrode.xcoords,electrode.ycoords,...
-            30,electrode.kcoords,'filled');
-        % Colours signify groups for spike sorting
-        hold on
-        for j = 1:length(electrode.xcoords)
-            if mod(electrode.xcoords(j),150) < 10
-                electrode.xlabel(j) = electrode.xcoords(j) + 15;
-            else
-                electrode.xlabel(j) = electrode.xcoords(j) - 50;
-            end
-            electrode.ylabel(j) = electrode.ycoords(j);
-        end
-        text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Intan')))
-
-        hold off
-    end
+    electrode.connected(exclude) = false;
     
     % Hard coded values - can be used for verification
 %     electrode.Shank = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, ...
@@ -278,123 +311,14 @@ switch lower(type)
     % Define Bad Channels - !!!! Specific to animal PMA18 !!!   
     % Now using automatically defined bad channels throuigh impedance
     % measurements
-    if isempty(exclude)
-        badChans = []; % [78 79 80 113 161]; % A77 A78 A79 A112 B32
-    else
-        badChans = exclude;
-    end
-    
-    electrode.connected(badChans) = false;
-    
-
-   % Draw the electrode here
-    if drawElectrode
-        electrodePlot = scatter(electrode.xcoords,electrode.ycoords,...
-            30,electrode.kcoords,'filled');
-        % Colours signify groups for spike sorting
-        hold on
-        for j = 1:length(electrode.xcoords)
-            if mod(electrode.xcoords(j),200) < 25
-                electrode.xlabel(j) = electrode.xcoords(j) + 15;
-            else
-                electrode.xlabel(j) = electrode.xcoords(j) - 50;
-            end
-            electrode.ylabel(j) = electrode.ycoords(j);
-        end
-        text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Intan')))
-
-        hold off
-    end
-    
-    
-    
-    %%
-%     case 'poly2-5mm' - This is based on the original physical mapping we
-%     recieved, after emailing NNx we recieved a new one... this is what is
-%     currently used 07-10-20
-%     %% poly2-5mm Details� 
-%     electrode.chanMap = [108,99,106,97,107,100,110,101,112,103,109,102, ...
-%         111,104,209,218,193,202,177,186,161,170,169,162,185,178,201,194,...
-%         217,210,98,105,124,115,122,113,123,116,126,117,128,119,125,118, ...
-%         127,120,211,220,195,204,179,188,163,172,171,164,187,180,203,196,...
-%         219,212,114,121,12,3,10,1,11,4,14,5,16,7,13,6,15,8,213,222,197, ...
-%         206,181,190,165,174,173,166,189,182,205,198,221,214,2,9,28,19,  ...
-%         26,17,27,20,30,21,32,23,29,22,31,24,216,223,200,207,184,191,168,...
-%         175,176,167,192,183,208,199,224,215,18,25,43,36,41,34,44,35,45,  ...
-%         38,47,40,46,37,48,39,234,225,250,241,138,129,154,145,146,153,130,   ...
-%         137,242,249,226,233,33,42,59,52,57,50,60,51,61,54,63,56,62,53,  ...
-%         64,55,235,228,251,244,139,132,155,148,147,156,131,140,243,252,  ...
-%         227,236,49,58,75,68,73,66,76,67,77,70,79,72,78,69,80,71,237,230,...
-%         253,246,141,134,157,150,149,158,133,142,245,254,229,238,65,74,  ...
-%         91,84,89,82,92,83,93,86,95,88,94,85,96,87,239,232,255,248,143,  ...
-%         136,159,152,151,160,135,144,247,256,231,240,81,90];
-% 
-%     % Programmaticly generate coordinate, location and shank data
-%     chanCount = 1;
-%     
-%     for shankI = 1:8
-%         for chanI = 1:32
-% 
-%             electrode.Shank(chanCount)    = shankI; % shanks are numbered left to right
-%             electrode.Location(chanCount) = chanCount; % locations are numbered tip to top
-% 
-%             % Electrode Geometry - Tip of shank 1 is origin, x-values increase
-%             % to right (along with shank numbers), y-values increase up the shank
-%             % This Probe has 150 um spacing between shanks
-%             % Contacts checkerboard up the probe with 20um between contacts in
-%             % a row (10 um between alternating sides), contacts are spaced
-%             % 17.32 um apart from each other, i.e. 8.66 um either side oh shank centre
-% 
-%             if chanI < 31
-%                 electrode.xcoords(chanCount)  = (shankI-1)*150 - ...
-%                     (( ((mod(chanI,2)) * - 2) + 1) * 8.66 ); 
-%                 % this just adds 8.66 if odd and subtracts if even
-%                 electrode.ycoords(chanCount)  = 35 + (chanI-1)*10;
-%                 electrode.SiteType{chanCount} = 'Normal';
-%             else
-%                 electrode.xcoords(chanCount)  = 0 + (shankI-1) * 150;
-%                 electrode.ycoords(chanCount)  = 290 + (chanI-30) * 100 + (shankI-1) * 100;
-%                 electrode.SiteType{chanCount} = 'Reference';
-%             end
-% 
-%             % Define K-coords, meaning the grouping kilosort uses to force
-%             % templates together
-% 
-%             if strcmp(electrode.SiteType{chanCount},'Normal')
-%                 electrode.kcoords(chanCount) = electrode.Shank(chanCount);
-%             else
-%                 electrode.kcoords(chanCount) = electrode.Shank(chanCount) + 8;
-%             end
-%             electrode.connected(chanCount) = true;
-%             chanCount = chanCount+1;
-%         end     
+%     if isempty(exclude)
+%         badChans = []; % [78 79 80 113 161]; % A77 A78 A79 A112 B32
+%     else
+%         badChans = exclude;
 %     end
-%     
-%     % This is not correct yet...
-%     electrode.Connector(1:64)    = 1;
-%     electrode.Connector(65:128)  = 2;
-%     electrode.Connector(129:192) = 3;
-%     electrode.Connector(193:256) = 4;
-%     
-%     electrode.name = 'A8x32-poly2-5mm-20s-150-160 IH256';
-%     
-%     % Draw the electrode here
-%     if drawElectrode
-%         electrodePlot = scatter(electrode.xcoords,electrode.ycoords,...
-%             30,electrode.kcoords,'filled');
-%         % Colours signify groups for spike sorting
-%         hold on
-%         electrode.xlabel(1:2:length(electrode.xcoords)) = ...
-%             electrode.xcoords(1:2:end) + 15;
-%         electrode.xlabel(2:2:length(electrode.xcoords)) = ...
-%             electrode.xcoords(2:2:end) - 50;  
-%         electrode.ylabel = electrode.ycoords;
-% 
-%         text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.chanMap')))
-% 
-%         hold off
-%     end
-%     
+    
+    electrode.connected(exclude) = false;
+
 %     % Hard coded values - can be used for verification
 % %     electrode.Shank = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, ...
 % %         1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,...
@@ -462,10 +386,62 @@ switch lower(type)
 % %         95,105,115,125,135,145,155,165,175,185,195,205,215,225,235,245, ...
 % %         255,265,275,285,295,305,315,325,1125,1225];
     
+    case 'buzsaki64'
+        % Hardcoded on 06-10-2021
+    electrode.chanMap   = 1:64;
+    electrode.Shank     = [2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,4,4,4,4,4,4,3,3,...
+        3,4,3,3,3,4,3,3,6,6,6,5,6,6,6,5,6,6,5,5,5,5,5,5,8,8,8,8,8,8,8,8,7,7,7,7,7,7,7,7];
+    electrode.Location  = [7,5,3,1,2,4,6,8,7,5,3,1,2,4,6,8,2,1,6,4,8,3,5,7,...
+        3,5,2,1,4,7,8,6,7,5,3,8,1,2,4,6,6,8,7,4,5,3,1,2,5,7,1,3,4,2,8,6,5,7,1,3,4,2,8,6];
+    electrode.xcoords   = [216.5,212.5,208.5,200,191.5,187.5,183.5,179.5,...
+        16.50,12.50,8.500,0,-8.500,-12.50,-16.50,-20.50,591.5,600,583.5,...
+        587.5,579.5,608.5,412.5,416.5,408.5,612.5,391.5,400,387.5,616.5,...
+        379.5,383.5,1016.5,1012.5,1008.5,779.5,1000,991.5,987.5,783.5,983.5,...
+        979.5,816.5,787.5,812.5,808.5,800,791.5,1412.5,1416.5,1400,1408.5,...
+        1387.5,1391.5,1379.5,1383.5,1212.5,1216.5,1200,1208.5,1187.5,1191.5,1179.5,1183.5];
+    electrode.ycoords   = [142,102,62,22,42,82,122,162,142,102,62,22,42,82,...
+        122,162,42,22,122,82,162,62,102,142,62,102,42,22,82,142,162,122,142,...
+        102,62,162,22,42,82,122,122,162,142,82,102,62,22,42,102,142,22,62,...
+        82,42,162,122,102,142,22,62,82,42,162,122];
+    electrode.SiteType  = repmat({'Normal'},1,64);
+    electrode.kcoords   = electrode.Shank;
+    electrode.connected = true(1,64);
+    electrode.connected(exclude) = false;
+    electrode.Intan = electrode.chanMap - 1;
+    electrode.name = 'Buzsaki64 H64LP';
+
     otherwise 
         warning(['Provided electrode type not found...'...
             ' currently defined types are: ' ...
             strjoin(electrodeTypes,', ')]);
         
+end
+
+
+% Draw the electrode here
+if drawElectrode
+    fig = figure;
+    ax = axes(fig);
+    electrodePlot = scatter(ax, electrode.xcoords(electrode.connected),...
+        electrode.ycoords(electrode.connected), 30, ...
+        electrode.kcoords(electrode.connected),'filled');
+    % Colours signify groups for spike sorting
+    hold on
+    for j = find(electrode.connected)
+        if mod(electrode.xcoords(j),200) < 25
+            electrode.xlabel(j) = electrode.xcoords(j) + 15;
+        else
+            electrode.xlabel(j) = electrode.xcoords(j) - 50;
+        end
+        electrode.ylabel(j) = electrode.ycoords(j);
+    end
+    text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Intan')))
+    
+    switch electrodeType
+        case 'Buzsaki64'
+            ax.YLim = [ -10 1000];
+    end
+
+    hold off
 end
     

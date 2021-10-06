@@ -169,7 +169,7 @@ if numDigitalInChans > 0 & ~isempty(digitalInData)
     for chanI = 1:numDigitalInChans
         for eventI = 1:length(eventOn{chanI})
             eventData(eventCount).type     = intanRec.board_dig_in_channels(chanI).native_order + 1001;
-            % Native numbering starts at 0, the 1000 gets us away from 8
+            % Native numbering starts at 0, the 1001 gets us away from 8
             % bit binary event numbers
             eventData(eventCount).latency  = eventOn{chanI}(eventI);
             eventData(eventCount).time     = secTimestamps(eventData(eventCount).latency);

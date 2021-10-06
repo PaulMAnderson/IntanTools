@@ -11,8 +11,20 @@ else
     cameraIdx = find([eventData.type] == 1001);
     cameraEvents = eventData(cameraIdx);
     
-    vidFile = [recordingData.VideoFiles.folder filesep ...
-               recordingData.VideoFiles.name];
+    % find a video file to read data from
+    if ~isempty(recordingData.VideoFiles.Processed)
+        vidFile = [recordingData.VideoFiles.Processed.folder filesep ...
+           recordingData.VideoFiles.Processed.name];
+    elseif ~isempty(recordingData.VideoFiles.Cam1)
+        vidFile = [recordingData.VideoFiles.Cam1.folder filesep ...
+           recordingData.VideoFiles.Cam1.name];
+    elseif ~isempty(recordingData.VideoFiles.Cam2)
+        vidFile = [recordingData.VideoFiles.Cam2.folder filesep ...
+           recordingData.VideoFiles.Cam2.name];        
+    elseif ~isempty(recordingData.VideoFiles.Raw)
+        error(['Matlab has trouble reading the raw video files output' ... 
+               'from the recording computer. Run convertVideos on this directory first']);
+    end
         
     %Create a videoReader object to handle processing video
     vid = VideoReader(vidFile);
@@ -52,8 +64,8 @@ else
         latency = num2cell([matchEvents.latency]);
         time    = num2cell([matchEvents.time]);
         [videoData.frame] = frames{:};
-        [videoData.frame] = latency{:};
-        [videoData.frame] = time{:};
+        [videoData.latency] = latency{:};
+        [videoData.time] = time{:};
     elseif length(matchEvents) < nFrames
         % There are less camera events than the number of video frames
         % Need to determine where the video frames start...
