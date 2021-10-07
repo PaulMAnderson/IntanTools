@@ -14,16 +14,17 @@ else
     % find a video file to read data from
     if ~isempty(recordingData.VideoFiles.Processed)
         vidFile = [recordingData.VideoFiles.Processed.folder filesep ...
-           recordingData.VideoFiles.Processed.name];
+               recordingData.VideoFiles.Processed.name];   
     elseif ~isempty(recordingData.VideoFiles.Cam1)
         vidFile = [recordingData.VideoFiles.Cam1.folder filesep ...
-           recordingData.VideoFiles.Cam1.name];
+               recordingData.VideoFiles.Cam1.name];
     elseif ~isempty(recordingData.VideoFiles.Cam2)
         vidFile = [recordingData.VideoFiles.Cam2.folder filesep ...
-           recordingData.VideoFiles.Cam2.name];        
-    elseif ~isempty(recordingData.VideoFiles.Raw)
-        error(['Matlab has trouble reading the raw video files output' ... 
-               'from the recording computer. Run convertVideos on this directory first']);
+               recordingData.VideoFiles.Cam2.name];
+    elseif  ~isempty(recordingData.VideoFiles.Raw)
+        error('Only raw video found, need to adjust it for Matlab, run convertVideos()');
+    else
+       error('No video found! Needed to sync video frames to TTL pulses');
     end
         
     %Create a videoReader object to handle processing video
