@@ -1,13 +1,18 @@
-function filteredData = CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter, outFilename)
+function CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter, outFilename, removeNoise)
 % Subtracts median of each channel, then subtracts median of each time
 % point and can also high-pass filters at 150 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
+% Also looks for a noise event file (neuroscope events) and write zeros to
+% noise event periods
 % Uses the GPU to do this quickly
 % filename should be the complete path to an intan.rhd file
 % The same directory should contain the 'amplifier.dat' file 
 
 %% File IO
 
+if nargin < 6
+    removeNoise = true;
+end
 if nargin < 5
     outFilename = [];
 end
@@ -48,18 +53,33 @@ else
     amplifierDataStruct = dir([dataPath data]);
 end
 
+% Look for noise events
+if removeNoise == true
+    noiseEventFile = dir([headerPath 'amplifier.exc.evt']);
+    if ~isempty(noiseEventFile)
+        rez.ops.fs = intanRec.frequency_parameters.amplifier_sample_rate;
+    	rez.ops.noiseEventFile = [noiseEventFile.folder filesep noiseEventFile.name];
+        noisePeriods = loadNoiseEvents(rez);      
+        removeNoise = true;
+    else
+        removeNoise = false;
+    end
+end
+    
+
 %% Setup Parameters
 % should make chunk size as big as possible so that the medians of the
 % channels differ little from chunk to chunk.
 
 loFreq    = 150;
 hiFreq     = 0; % Zero means High-Pass filter
-chunkSize  = 2^17;
+chunkSize  = 2^20;
 bufferSize = 2^10;
 
 numChannels = length(intanRec.amplifier_channels);
 if nargin < 2
     goodChans = 1:numChannels;
+    connected = ones(size(goodChans));
     % chanMap specifies 'bad' channels to leave out of referenceing etc.
 else
    load(chanMapPath);
@@ -111,11 +131,11 @@ for chunkI = 1:numChunks
         
     if chunkI == 1
         startPoint = 1;
-        endPoint   = chunkSize;
+        endPoint   = chunkSize+bufferSize;
         chunk = amplifierMap.Data.data(:,1:chunkSize+bufferSize);
         chunk = [zeros(numChannels,bufferSize,'int16') chunk];
     elseif chunkI == numChunks
-        startPoint = (chunkSize * (chunkI-1)) + 1;
+        startPoint = (chunkSize * (chunkI-1)) + 1 - bufferSize;
         endPoint   = numSamples;
         chunk      =  amplifierMap.Data.data(:,...
             chunkSize * (chunkI-1) + 1 - bufferSize : numSamples);
@@ -124,15 +144,42 @@ for chunkI = 1:numChunks
             chunk = [chunk zeros(numChannels, ...
             (chunkSize + 2 * bufferSize) - lastChunkSize,'int16')];
         end
-    else
+    elseif (chunkSize*chunkI  + bufferSize >  length(amplifierMap.Data.data))
+        startPoint = (chunkSize * (chunkI-1)) + 1 - bufferSize;
+        endPoint   = numSamples;
+        chunk      =  amplifierMap.Data.data(:,...
+            chunkSize * (chunkI-1) + 1 - bufferSize : numSamples);
+        lastChunkSize = size(chunk,2);
+        if lastChunkSize < chunkSize + 2 * bufferSize
+            chunk = [chunk zeros(numChannels, ...
+            (chunkSize + 2 * bufferSize) - lastChunkSize,'int16')];
+        end
+    else        
         chunk = amplifierMap.Data.data(:,...
             chunkSize * (chunkI-1) + 1 - bufferSize : ...
              chunkSize*chunkI  + bufferSize);
-        startPoint = (chunkSize * (chunkI-1)) + 1;
-        endPoint   = chunkSize * (chunkI);
+        startPoint = (chunkSize * (chunkI-1)) + 1 - bufferSize;
+        endPoint   = chunkSize * (chunkI) + bufferSize;
     end
-        
-    
+              
+    %% Test here for if this batch is in noise period
+    if removeNoise == true 
+        possibleNoise = find(startPoint <= noisePeriods.endSample);
+        confirmedNoise = possibleNoise( endPoint >= noisePeriods.startSample(possibleNoise) );
+
+
+        if ~isempty(confirmedNoise)
+            for j = 1:length(confirmedNoise)
+                channels = goodChans(dsearchn(goodChans(:),...
+                    (noisePeriods.startChannel(confirmedNoise(j)):...
+                     noisePeriods.endChannel(confirmedNoise(j)))'));
+                samples = startPoint:endPoint;
+                blank = samples >= noisePeriods.startSample(confirmedNoise(j))...
+                & samples <= noisePeriods.endSample(confirmedNoise(j));
+                chunk(channels,blank) = 0;
+            end
+        end
+    end
     %% Baseline,
 
     % Use GPU to common average reference and baseline (subtract per channel mean)

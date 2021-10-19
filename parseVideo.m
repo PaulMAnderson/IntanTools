@@ -1,3 +1,4 @@
+
 function videoData = parseVideo(recPath, eventData)
 
 [recPath, recordingData] = parseRecPath(recPath);
