@@ -1,4 +1,4 @@
-function combineIntanAnalogueFiles(fPath1, fPath2, outputPath, header1, header2)
+function combineIntanAnalogueFiles(fPath1, fPath2, header1, header2, outputPath)
 
 assert(length(header1.board_adc_channels) == length(header2.board_adc_channels),....
     'Analogue channels don''t match');

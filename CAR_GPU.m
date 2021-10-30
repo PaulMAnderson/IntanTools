@@ -1,4 +1,4 @@
-function CAR_GPU(intanHeaderPath, rawDataPath, chanMapPath, runFilter, outFilename, removeNoise)
+function CAR_GPU(intanHeader, rawDataPath, chanMapPath, runFilter, outFilename, removeNoise)
 % Subtracts median of each channel, then subtracts median of each time
 % point and can also high-pass filters at 150 Hz
 % Does so in chunks, users buffers to avoid artefacts at edges
@@ -20,11 +20,23 @@ end
 if nargin < 4
     runFilter = true;
 end
-if nargin > 0
-    [headerPath, headerName, headerExt] = fileparts(intanHeaderPath);
-    header = [headerName headerExt];
-    headerPath = [headerPath filesep];
-    [dataPath, dataName, dataExt] = fileparts(rawDataPath);
+if nargin > 0    
+    if ~( isstruct(intanHeader) && isfield(intanHeader,'frequency_parameters') )
+    % Assume it is a path and try to load header    
+        [headerPath, headerName, headerExt] = fileparts(intanHeader);
+        header = [headerName headerExt];
+        headerPath = [headerPath filesep];
+        % Load Header Info
+        intanHeader = loadIntanHeader([headerPath header]);
+    else
+        [headerPath, headerName, headerExt] = fileparts(rawDataPath);
+    end        
+    if isstruct(rawDataPath)
+        dataPath = rawDataPath.folder;
+        [~, dataName, dataExt] = fileparts(rawDataPath.name);
+    else
+        [dataPath, dataName, dataExt] = fileparts(rawDataPath);
+    end
     data = [dataName dataExt];
     dataPath = [dataPath filesep];
 elseif nargin == 0
@@ -34,10 +46,7 @@ elseif nargin == 0
     dataPath = headerPath;
 end
 
-% Load Header Info
-intanRec = loadIntanHeader([headerPath header]);
-
-if ~exist(data, 'file')
+if ~exist([dataPath data], 'file')
     try 
         data = [headerPath 'amplifier.dat'];
         if ~exist(data, 'file')
@@ -55,9 +64,9 @@ end
 
 % Look for noise events
 if removeNoise == true
-    noiseEventFile = dir([headerPath 'amplifier.exc.evt']);
+    noiseEventFile = dir([dataPath 'amplifier.exc.evt']);
     if ~isempty(noiseEventFile)
-        rez.ops.fs = intanRec.frequency_parameters.amplifier_sample_rate;
+        rez.ops.fs = intanHeader.frequency_parameters.amplifier_sample_rate;
     	rez.ops.noiseEventFile = [noiseEventFile.folder filesep noiseEventFile.name];
         noisePeriods = loadNoiseEvents(rez);      
         removeNoise = true;
@@ -76,7 +85,7 @@ hiFreq     = 0; % Zero means High-Pass filter
 chunkSize  = 2^20;
 bufferSize = 2^10;
 
-numChannels = length(intanRec.amplifier_channels);
+numChannels = length(intanHeader.amplifier_channels);
 if nargin < 2
     goodChans = 1:numChannels;
     connected = ones(size(goodChans));
@@ -89,7 +98,7 @@ end
 % would use kcoords values for this 
 
 numSamples  = amplifierDataStruct.bytes/numChannels/2; % samples = bytes/channels/2 (2 bits per int16 sample)
-sRate       = intanRec.frequency_parameters.amplifier_sample_rate;
+sRate       = intanHeader.frequency_parameters.amplifier_sample_rate;
 numChunks   = ceil(numSamples./chunkSize);
 
 filename = [amplifierDataStruct.folder filesep amplifierDataStruct.name];
@@ -103,7 +112,7 @@ if isempty(outFilename)
     end
     fid    = fopen(filename,'r');
     fidOut = fopen(outFilename,'w');
-    else
+else
     fid    = fopen(filename,'r');
     fidOut = fopen(outFilename,'a');
 end
