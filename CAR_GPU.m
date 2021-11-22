@@ -208,34 +208,26 @@ for chunkI = 1:numChunks
     
     % CAR, common average referencing by 64 channel batches - accounts for
     % some problems with headstages dropping out
-    for j = 1:4
-        chans = ((j-1)*64)+1:j*64;
-        subGoodChans = chans(connected(chans));
+    
+    % if the number of channels is not divisible by 64 just process them all at once
+    if mod(numChannels,64) ~= 0 
+        subGoodChans = connected(chans);
         if isempty(subGoodChans)
             continue
         else
             dataGPU(:,chans) = dataGPU(:,chans) - median(dataGPU(:,subGoodChans), 2); % subtract median across channels
         end
+    else
+        for j = 1:ceil(length(connected)./64)
+            chans = ((j-1)*64)+1:j*64;
+            subGoodChans = chans(connected(chans));
+            if isempty(subGoodChans)
+                continue
+            else
+                dataGPU(:,chans) = dataGPU(:,chans) - median(dataGPU(:,subGoodChans), 2); % subtract median across channels
+            end
+        end
     end
-     % CAR, common average referencing by channel group
-%      referenceGroups = unique(kcoords);
-%      if any(strcmp('Reference',unique(SiteType))) % Check for special Reference channels
-%          referenceGroups(referenceGroups>100) = [];
-%          for refI = 1:length(referenceGroups)
-%              refChans     = kcoords == referenceGroups(refI) + 100;
-%              currentChans = (kcoords == referenceGroups(refI)) | refChans;
-%             % Use the mean of the specific reference channels
-%              dataGPU(:,currentChans) = dataGPU(:,currentChans) - mean(dataGPU(:,refChans),2);
-% %            % Use the median of the whole group
-% %            dataGPU(:,currentChans) = dataGPU(:,currentChans) - median(dataGPU(:,currentChans),2);
-%          end
-%      else
-%          for refI = 1:length(referenceGroups)
-%             currentChans = (kcoords == referenceGroups(refI));
-%             % Use the median of the whole group
-%             dataGPU(:,currentChans) = dataGPU(:,currentChans) - median(dataGPU(:,currentChans),2);
-%          end
-%      end
      
      %% Filter
     if runFilter

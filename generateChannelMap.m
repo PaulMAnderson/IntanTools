@@ -25,8 +25,7 @@ defExclude   = [];
 defDraw = false;
 
 % define validation functions
-valExclude = @(x) validateattributes(x, {'numeric'},...
-    {'nonempty'});
+valExclude = @(x) validateattributes(x, {'numeric'},{'nonempty'});
 valString = @(x) validateattributes(x, {'char','string','cell'},...
     {'nonempty'});
 
@@ -43,7 +42,7 @@ parse(p, varargin{:});
 electrodeType   = p.Results.Electrode;
 animal          = p.Results.Animal; 
 exclude         = p.Results.Exclude;
-drawElectrode   =  p.Results.Draw;
+drawElectrode   = p.Results.Draw;
 
 clear p
 

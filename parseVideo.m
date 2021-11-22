@@ -1,14 +1,13 @@
 
 function videoData = parseVideo(recPath, eventData)
 
-[recPath, recordingData] = parseRecPath(recPath);
+[recPath, recordingData] = parseRecordingPath(recPath);
 
 if isempty(recordingData.VideoFiles) % Check for existance of videos
     warning('No video files found. Skipping Video Sync');
     videoData = [];
     return
-else    
-    
+else        
     cameraIdx = find([eventData.type] == 1001);
     cameraEvents = eventData(cameraIdx);
     
@@ -33,6 +32,12 @@ else
         vid = VideoReader(vidFile{vidI});
         clear videoData
  
+        % extract root file name to
+        [~,fileName,~] = fileparts(vidFile{vidI});
+        pattern = '[A-Z]{2,3}\d{1,3}[\s+\_]\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}';
+        rootName = regexp(fileName,pattern,'match');
+     
+       
         %% Check if the frame rate & duration match the camera events       
         nFrames = round(vid.Duration.*vid.FrameRate); % Estimate number of frames
         % Check for discontinuities in camera events
@@ -70,7 +75,7 @@ else
             [videoData.frame] = frames{:};
             [videoData.latency] = latency{:};
             [videoData.time] = time{:};
-            fileName = repmat(vidFile(vidI)',size(frames));
+            fileName = repmat(rootName,size(frames));
             [videoData.file] = fileName{:};
             vidData{vidI} = videoData;
             
@@ -98,7 +103,7 @@ else
                 [videoData.frame] = frames{:};
                 [videoData.latency] = latency{:};
                 [videoData.time] = time{:};
-                [videoData.file] = repmat(vidFile(vidI),size(frames));            
+                [videoData.file] = repmat(rootName,size(frames));            
                 vidData{vidI} = videoData;
             else
                 warning(['Video TTL marks start before recording...' ...
@@ -106,10 +111,9 @@ else
                 vidData{vidI} = [];
             end            
         end
-    end
+    end % end video file loop
        
-    for vidI = 1:length(vidFile)
-       
+    for vidI = 1:length(vidFile)       
         if vidI == 1
             videoData = vidData{vidI};
         else
@@ -117,4 +121,15 @@ else
         end
     end
     
-end
+end % End of video file exist if statement
+
+
+% Write video file to disk
+disp('Writing Video Sync Table to Disk');
+videoTable = struct2table(videoData);
+writetable(videoTable,'videoSync.tsv',...
+    'Delimiter','\t','filetype','text');
+    
+
+
+end % end parseVideo Function
