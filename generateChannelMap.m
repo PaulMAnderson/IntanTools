@@ -10,9 +10,13 @@ function electrode = generateChannelMap(varargin)
 % selection based on recording names: can be 'PMA17,18,33,36,37
 % 'Exclude'   : logical index of channels to registed as 'unconnected' i.e. bad
 % 'Draw'      : generate a figure of the electrode, default = true
+% 'Handle'    : Handle to draw in; default = newFigure
+% 'Labels'    : Whether to label channels when drawing
 
 % Updated on 07-10-2020 with a new mappping recieved from NNx
-% 64 Channel Buzsaki64 probe added on 06-11-2021
+% 64 Channel Buzsaki64 probe added on 06-11-2021, fixed (correct) on
+% 21-12-2021
+
 
 %% Parse variable input arguments
 
@@ -23,6 +27,8 @@ defElectrodeType = [];
 defAnimal    = [];
 defExclude   = [];
 defDraw = false;
+defHandle = [];
+defLabels = true;
 
 % define validation functions
 valExclude = @(x) validateattributes(x, {'numeric'},{'nonempty'});
@@ -35,6 +41,8 @@ addParameter(p, 'Animal', defAnimal, valString);
 
 addParameter(p, 'Exclude', defExclude, valExclude);
 addParameter(p, 'Draw', defDraw, @islogical);
+addParameter(p, 'Labels', defLabels, @islogical);
+addParameter(p, 'Handle',defHandle, @ishandle);
 
 parse(p, varargin{:});
 
@@ -43,6 +51,8 @@ electrodeType   = p.Results.Electrode;
 animal          = p.Results.Animal; 
 exclude         = p.Results.Exclude;
 drawElectrode   = p.Results.Draw;
+labels          = p.Results.Labels;
+handle          = p.Results.Handle;
 
 clear p
 
@@ -58,6 +68,8 @@ if ~isempty(animal)
     elseif contains(animal,'36')
         electrodeType = 'poly2-5mm';
     elseif contains(animal,'37')
+        electrodeType = 'Buzsaki64';
+    elseif contains(animal,'41')
         electrodeType = 'Buzsaki64';
     end
 end
@@ -94,7 +106,7 @@ switch lower(electrodeType)
        115,73,116,186,131,178,139,170,147,162,155,166,159,174,151,182,143,...
        190,135,113,76,126,71,125,72,67,122,127,70,128,69,66,123,65,124,136,...
        189,144,181,152,173,160,165,156,161,148,169,140,177,132,185,121,68];
-    
+    electrode.Number = electrode.chanMap; % Only in 128/256 channel count electrode are the channel numbers and electrode numbers the same    
     electrode.Intan = electrode.chanMap - 1;
     
     [~, sortIndx] = sort(electrode.chanMap);
@@ -143,6 +155,7 @@ switch lower(electrodeType)
     
     % sort the electrode Data to start with electrode #1
     electrode.chanMap   = electrode.chanMap(sortIndx);
+    electrode.Number    = electrode.Number(sortIndx);
     electrode.Shank     = electrode.Shank(sortIndx);
     electrode.Location  = electrode.Location(sortIndx);
     electrode.xcoords   = electrode.xcoords(sortIndx);
@@ -255,6 +268,7 @@ switch lower(electrodeType)
              174,151,182,143,190,135,120,77,68,121,126,71,127,70,125,72,...
              67,122,66,123,65,124,136,189,144,181,152,173,160,165,156,161,...
              148,169,140,177,132,185,128,69];
+    electrode.Number = electrode.chanMap; % Only in 128/256 channel count electrode are the channel numbers and electrode numbers the same    
 
     electrode.Intan = electrode.chanMap - 1;
     
@@ -293,6 +307,7 @@ switch lower(electrodeType)
     
     % sort the electrode Data to start with electrode #1
     electrode.chanMap   = electrode.chanMap(sortIndx);
+    electrode.Number    = electrode.Number(sortIndx);
     electrode.Shank     = electrode.Shank(sortIndx);
     electrode.Location  = electrode.Location(sortIndx);
     electrode.xcoords   = electrode.xcoords(sortIndx);
@@ -386,22 +401,32 @@ switch lower(electrodeType)
 % %         255,265,275,285,295,305,315,325,1125,1225];
     
     case 'buzsaki64'
-        % Hardcoded on 06-10-2021
+        % Updated on 21-12-2021 - was wrong previously...
     electrode.chanMap   = 1:64;
-    electrode.Shank     = [2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,4,4,4,4,4,4,3,3,...
-        3,4,3,3,3,4,3,3,6,6,6,5,6,6,6,5,6,6,5,5,5,5,5,5,8,8,8,8,8,8,8,8,7,7,7,7,7,7,7,7];
-    electrode.Location  = [7,5,3,1,2,4,6,8,7,5,3,1,2,4,6,8,2,1,6,4,8,3,5,7,...
-        3,5,2,1,4,7,8,6,7,5,3,8,1,2,4,6,6,8,7,4,5,3,1,2,5,7,1,3,4,2,8,6,5,7,1,3,4,2,8,6];
-    electrode.xcoords   = [216.5,212.5,208.5,200,191.5,187.5,183.5,179.5,...
-        16.50,12.50,8.500,0,-8.500,-12.50,-16.50,-20.50,591.5,600,583.5,...
-        587.5,579.5,608.5,412.5,416.5,408.5,612.5,391.5,400,387.5,616.5,...
-        379.5,383.5,1016.5,1012.5,1008.5,779.5,1000,991.5,987.5,783.5,983.5,...
-        979.5,816.5,787.5,812.5,808.5,800,791.5,1412.5,1416.5,1400,1408.5,...
-        1387.5,1391.5,1379.5,1383.5,1212.5,1216.5,1200,1208.5,1187.5,1191.5,1179.5,1183.5];
-    electrode.ycoords   = [142,102,62,22,42,82,122,162,142,102,62,22,42,82,...
-        122,162,42,22,122,82,162,62,102,142,62,102,42,22,82,142,162,122,142,...
-        102,62,162,22,42,82,122,122,162,142,82,102,62,22,42,102,142,22,62,...
-        82,42,162,122,102,142,22,62,82,42,162,122];
+    electrode.Number    = [49	50	51	52	53	54	55	56	57	58	59	60 ...
+    	61	62	63	64	37	36	39	38	40	35	42	41	43	34	45	44	46	...
+        33	48	47	17	18	19	32	20	21	22	31	23	24	25	30	26	27	...
+        28	29	2	1	4	3	6	5	8	7	10	9	12	11	14	13	16	15];
+    % This is the numbers as used on the NeuroNexus Probe Sheet
+    electrode.Shank     = [7	7	7	7	7	7	7	7	8	8	8	8	...
+        8	8	8	8	5	5	5	5	5	5	6	6	6	5	6	6	6	...
+        5	6	6	3	3	3	4	3	3	3	4	3	3	4	4	4	4	...
+        4	4	1	1	1	1	1	1	1	1	2	2	2	2	2	2	2	2];
+    electrode.Location  = [8	6	4	2	1	3	5	7	8	6	4	2	...
+        1	3	5	7	1	2	5	3	7	4	6	8	4	6	1	2	3	...
+        8	7	5	8	6	4	7	2	1	3	5	5	7	8	3	6	4	...
+        2	1	6	8	2	4	3	1	7	5	6	8	2	4	3	1	7	5];
+    electrode.xcoords   = [1179.5	1183.5	1187.5	1191.5	1200	1208.5	...
+        1212.5	1216.5	1379.5	1383.5	1387.5	1391.5	1400	1408.5	1412.5	...
+        1416.5	800	791.50	812.50	808.50	816.50	787.50	983.50	979.50	...
+        987.50	783.50	1000	991.50	1008.5	779.50	1016.5	1012.5	379.50	...
+        383.50	387.50	616.50	391.50	400	408.50	612.50	412.50	416.50	...
+        579.50	608.50	583.50	587.50	591.50	600	-16.500	-20.500	-8.5000	...
+        -12.500	8.5000	0	16.500	12.500	183.50	179.50	191.50	187.50	208.50	200	216.50	212.50];
+    electrode.ycoords   = [162	122	82	42	22	62	102	142	162	122	82	42	...
+        22	62	102	142	22	42	102	62	142	82	122	162	82	122	22	42	62	...
+        162	142	102	162	122	82	142	42	22	62	102	102	142	162	62	122	82	...
+        42	22	122	162	42	82	62	22	142	102	122	162	42	82	62	22	142	102];
     electrode.SiteType  = repmat({'Normal'},1,64);
     electrode.kcoords   = electrode.Shank;
     electrode.connected = true(1,64);
@@ -419,27 +444,32 @@ end
 
 % Draw the electrode here
 if drawElectrode
-    fig = figure;
-    ax = axes(fig);
-    electrodePlot = scatter(ax, electrode.xcoords(electrode.connected),...
+    if isempty(handle)
+        fig = figure;
+        handle = axes(fig);
+    end
+    electrodePlot = scatter(handle, electrode.xcoords(electrode.connected),...
         electrode.ycoords(electrode.connected), 30, ...
         electrode.kcoords(electrode.connected),'filled');
     % Colours signify groups for spike sorting
-    hold on
-    for j = find(electrode.connected)
-        if mod(electrode.xcoords(j),200) < 25
-            electrode.xlabel(j) = electrode.xcoords(j) + 15;
-        else
-            electrode.xlabel(j) = electrode.xcoords(j) - 50;
-        end
-        electrode.ylabel(j) = electrode.ycoords(j);
-    end
-    text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Intan')))
     
-    switch electrodeType
-        case 'Buzsaki64'
-            ax.YLim = [ -10 1000];
+    if labels
+        hold on
+        for j = find(electrode.connected)
+            if mod(electrode.xcoords(j),200) < 25
+                electrode.xlabel(j) = electrode.xcoords(j) + 15;
+            else
+                electrode.xlabel(j) = electrode.xcoords(j) - 50;
+            end
+            electrode.ylabel(j) = electrode.ycoords(j);
+        end
+        text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Number')))
     end
+
+    %     switch electrodeType
+%         case 'Buzsaki64'
+%             ax.YLim = [ -10 1000];
+%     end
 
     hold off
 end

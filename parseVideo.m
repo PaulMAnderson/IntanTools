@@ -83,9 +83,19 @@ else
             % There are less camera events than the number of video frames
             % Need to determine where the video frames start...
             warning(['More video frames than camera TTL events...' ...
-                     ' Assuming that video started at the be...']);
+                     ' Assuming that video started at the first TTL..']);
+            
+            videoData(1:length(matchEvents)) = struct('frame',[],'latency',[], 'time',[],'file',[]);
+            frames  = num2cell(1:length(matchEvents));
+            latency = num2cell([matchEvents.latency]);
+            time    = num2cell([matchEvents.time]);
+            [videoData.frame] = frames{:};
+            [videoData.latency] = latency{:};
+            [videoData.time] = time{:};
+            fileName = repmat(rootName,size(frames));
+            [videoData.file] = fileName{:};
+            vidData{vidI} = videoData;
 
-            vidData{vidI} = [];
         elseif nFrames < length(matchEvents)
             % video is shorter than event count 
             % check that video starts after recording
@@ -103,7 +113,8 @@ else
                 [videoData.frame] = frames{:};
                 [videoData.latency] = latency{:};
                 [videoData.time] = time{:};
-                [videoData.file] = repmat(rootName,size(frames));            
+                fileName = repmat(rootName,size(frames));
+                [videoData.file] = fileName{:};           
                 vidData{vidI} = videoData;
             else
                 warning(['Video TTL marks start before recording...' ...
@@ -127,7 +138,7 @@ end % End of video file exist if statement
 % Write video file to disk
 disp('Writing Video Sync Table to Disk');
 videoTable = struct2table(videoData);
-writetable(videoTable,'videoSync.tsv',...
+writetable(videoTable,[recordingData.Path filesep 'videoSync.tsv'],...
     'Delimiter','\t','filetype','text');
     
 
