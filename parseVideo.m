@@ -21,6 +21,16 @@ else
         warning('Only raw video found, need to adjust it for Matlab, run convertVideos()');
         videoData = [];
         return
+ elseif  ~isempty(recordingData.VideoFiles.Cam1)
+        for fileI = 1:length(recordingData.VideoFiles.Cam1)
+            vidFile{fileI} = [recordingData.VideoFiles.Cam1(fileI).folder filesep ...
+            recordingData.VideoFiles.Cam1(fileI).name];
+        end
+ elseif  ~isempty(recordingData.VideoFiles.Cam2)
+        for fileI = 1:length(recordingData.VideoFiles.Cam2)
+            vidFile{fileI} = [recordingData.VideoFiles.Cam2(fileI).folder filesep ...
+                 recordingData.VideoFiles.Cam2(fileI).name];
+        end   
     else
        warning('No video found! Needed to sync video frames to TTL pulses');
        videoData = [];

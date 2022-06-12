@@ -1,7 +1,6 @@
 function electrode = generateChannelMap(varargin)
 % Code to generate electrode channel maps for use with kilosort and other
-% purposes. Created from channel maps provided by Neuronexus
-
+% purposes
 % All inputs are optional, if none are provided dialog will allow selection
 % of probe type
 % 'Electrode' : string describing electrode type: 
@@ -83,6 +82,13 @@ if isempty(electrodeType)
     assert(tf,'No electrode type chosen, cannot proceed.');
     
     electrodeType = electrodeTypes{indx};
+end
+
+% Check for longer string
+for elecI = 1:length(electrodeTypes)
+    if contains(electrodeType, electrodeTypes{elecI})
+        electrodeType = electrodeTypes{elecI};
+    end
 end
 
 electrodeType  = validatestring(electrodeType,electrodeTypes);

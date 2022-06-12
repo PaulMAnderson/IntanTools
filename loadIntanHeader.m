@@ -7,10 +7,9 @@ if nargin > 0 && ~isempty(filepath)
         file = filepath.name;
         filepath = [filepath.folder filesep];
     elseif strcmp(filepath(end-2:end),'rhd')
-        [fileParts, matches] = strsplit(filepath,filesep);
-        file = fileParts{end};
-        filepath = strjoin(fileParts(1:end-1) , filesep);
-        filepath = [filepath filesep];
+        temp = dir(filepath);
+        file = temp.name;
+        filepath = [temp.folder filesep];
     else
         if exist([filepath filesep 'info.rhd'],'file')
             file = 'info.rhd';
