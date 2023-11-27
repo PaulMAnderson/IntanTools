@@ -18,7 +18,7 @@ if nargin < 5
 end
 
 if nargin < 4
-    runFilter = true;
+    runFilter = false;
 end
 if nargin > 0    
     if ~( isstruct(intanHeader) && isfield(intanHeader,'frequency_parameters') )
@@ -64,11 +64,11 @@ end
 
 % Look for noise events
 if removeNoise == true
-    noiseEventFile = dir([dataPath 'amplifier.exc.evt']);
-    if ~isempty(noiseEventFile)
-        rez.ops.fs = intanHeader.frequency_parameters.amplifier_sample_rate;
-    	rez.ops.noiseEventFile = [noiseEventFile.folder filesep noiseEventFile.name];
-        noisePeriods = loadNoiseEvents(rez);      
+    noiseEventDir = dir([dataPath 'amplifier.exc.evt']);
+    if ~isempty(noiseEventDir)
+        sRate = intanHeader.frequency_parameters.amplifier_sample_rate;
+    	noiseEventFile = [noiseEventDir.folder filesep noiseEventDir.name];
+        noisePeriods = loadNoiseEvents(noiseEventFile,sRate);      
         removeNoise = true;
     else
         removeNoise = false;

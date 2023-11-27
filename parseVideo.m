@@ -1,40 +1,50 @@
+function videoData = parseVideo(recData)
 
-function videoData = parseVideo(recPath, eventData)
+disp('Loading raw events for video synchronisation');
+switch recData.Type
+    case 'Intan'
+        [eventData, ~] = intanEventTimes(recData);
+    case 'Spike2'
+        eventData = createSpikeVideoEventData(recData);            
+end
 
-[recPath, recordingData] = parseRecordingPath(recPath);
-
-if isempty(recordingData.VideoFiles) % Check for existance of videos
+if isempty(recData.VideoFiles) % Check for existance of videos
     warning('No video files found. Skipping Video Sync');
     videoData = [];
     return
-else        
+else
     cameraIdx = find([eventData.type] == 1001);
     cameraEvents = eventData(cameraIdx);
-    
+
     % find a video file to read data from
-    if ~isempty(recordingData.VideoFiles.Processed)
-        for fileI = 1:length(recordingData.VideoFiles.Processed)
-            vidFile{fileI} = [recordingData.VideoFiles.Processed(fileI).folder filesep ...
-                 recordingData.VideoFiles.Processed(fileI).name];
+    if ~isempty(recData.VideoFiles.Processed)
+        for fileI = 1:length(recData.VideoFiles.Processed)
+            vidFile{fileI} = [recData.VideoFiles.Processed(fileI).folder filesep ...
+                recData.VideoFiles.Processed(fileI).name];
+        end 
+    elseif  ~isempty(recData.VideoFiles.Cam1)
+        for fileI = 1:length(recData.VideoFiles.Cam1)
+            vidFile{fileI} = [recData.VideoFiles.Cam1(fileI).folder filesep ...
+                recData.VideoFiles.Cam1(fileI).name];
         end
-    elseif  ~isempty(recordingData.VideoFiles.Raw)
+    elseif  ~isempty(recData.VideoFiles.Cam2)
+        for fileI = 1:length(recData.VideoFiles.Cam2)
+            vidFile{fileI} = [recData.VideoFiles.Cam2(fileI).folder filesep ...
+                recData.VideoFiles.Cam2(fileI).name];
+        end
+    elseif  ~isempty(recData.VideoFiles.DualCam)
+        for fileI = 1:length(recData.VideoFiles.DualCam)
+            vidFile{fileI} = [recData.VideoFiles.DualCam(fileI).folder filesep ...
+                recData.VideoFiles.DualCam(fileI).name];
+        end
+   elseif  ~isempty(recData.VideoFiles.Raw)
         warning('Only raw video found, need to adjust it for Matlab, run convertVideos()');
         videoData = [];
         return
- elseif  ~isempty(recordingData.VideoFiles.Cam1)
-        for fileI = 1:length(recordingData.VideoFiles.Cam1)
-            vidFile{fileI} = [recordingData.VideoFiles.Cam1(fileI).folder filesep ...
-            recordingData.VideoFiles.Cam1(fileI).name];
-        end
- elseif  ~isempty(recordingData.VideoFiles.Cam2)
-        for fileI = 1:length(recordingData.VideoFiles.Cam2)
-            vidFile{fileI} = [recordingData.VideoFiles.Cam2(fileI).folder filesep ...
-                 recordingData.VideoFiles.Cam2(fileI).name];
-        end   
     else
-       warning('No video found! Needed to sync video frames to TTL pulses');
-       videoData = [];
-       return
+        warning('No video found! Needed to sync video frames to TTL pulses');
+        videoData = [];
+        return
     end
         
     %Create a videoReader object to handle processing video
@@ -42,12 +52,15 @@ else
         vid = VideoReader(vidFile{vidI});
         clear videoData
  
-        % extract root file name to
+        % extract root file name (meaning animal and date code, no 'cam'
         [~,fileName,~] = fileparts(vidFile{vidI});
         pattern = '[A-Z]{2,3}\d{1,3}[\s+\_]\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}';
         rootName = regexp(fileName,pattern,'match');
-     
-       
+        if isempty(rootName) % doesn't work sometimes, default to name            
+            temp = strsplit(fileName,' ');
+            rootName = {strjoin(temp(1:end-1))};
+        end
+           
         %% Check if the frame rate & duration match the camera events       
         nFrames = round(vid.Duration.*vid.FrameRate); % Estimate number of frames
         % Check for discontinuities in camera events
@@ -138,6 +151,7 @@ else
         if vidI == 1
             videoData = vidData{vidI};
         else
+            tempData = vidData{vidI};
             videoData = [videoData vidData{vidI}];        
         end
     end
@@ -148,7 +162,7 @@ end % End of video file exist if statement
 % Write video file to disk
 disp('Writing Video Sync Table to Disk');
 videoTable = struct2table(videoData);
-writetable(videoTable,[recordingData.Path filesep 'videoSync.tsv'],...
+writetable(videoTable,[recData.Path filesep 'videoSync.tsv'],...
     'Delimiter','\t','filetype','text');
     
 

@@ -20,28 +20,20 @@ function electrode = generateChannelMap(varargin)
 %% Parse variable input arguments
 
 p = inputParser; % Create object of class 'inputParser'
-
-% define defaults
-defElectrodeType = [];
-defAnimal    = [];
-defExclude   = [];
-defDraw = false;
-defHandle = [];
-defLabels = true;
-
 % define validation functions
-valExclude = @(x) validateattributes(x, {'numeric'},{'nonempty'});
 valString = @(x) validateattributes(x, {'char','string','cell'},...
     {'nonempty'});
 
 % validation functions
-addParameter(p, 'Electrode', defElectrodeType, valString);
-addParameter(p, 'Animal', defAnimal, valString);
+addParameter(p, 'Electrode', [], valString);
+addParameter(p, 'Animal', [], valString);
 
-addParameter(p, 'Exclude', defExclude, valExclude);
-addParameter(p, 'Draw', defDraw, @islogical);
-addParameter(p, 'Labels', defLabels, @islogical);
-addParameter(p, 'Handle',defHandle, @ishandle);
+addParameter(p, 'Exclude', [], @isnumeric);
+addParameter(p, 'Draw', false, @islogical);
+addParameter(p, 'Labels', true, @islogical);
+addParameter(p, 'Handle',[], @ishandle);
+addParameter(p, 'ZeroIndex',false, @islogical);
+addParameter(p, 'Interactive', true, @islogical);
 
 parse(p, varargin{:});
 
@@ -52,23 +44,25 @@ exclude         = p.Results.Exclude;
 drawElectrode   = p.Results.Draw;
 labels          = p.Results.Labels;
 handle          = p.Results.Handle;
+zeroIndex       = p.Results.ZeroIndex;
+interactive     = p.Results.Interactive;
 
 clear p
 
 % Check animal 
 
 if ~isempty(animal)
-    if contains(animal,'17')
+    if contains(animal,'PMA17')
         electrodeType = 'poly2-5mm';
-    elseif contains(animal,'18')
+    elseif contains(animal,'PMA18')
         electrodeType = 'poly2-6mm';
-    elseif contains(animal,'33')
+    elseif contains(animal,'PMA33')
         electrodeType = 'poly2-6mm';
-    elseif contains(animal,'36')
+    elseif contains(animal,'PMA36')
         electrodeType = 'poly2-5mm';
-    elseif contains(animal,'37')
+    elseif contains(animal,'PMA37')
         electrodeType = 'Buzsaki64';
-    elseif contains(animal,'41')
+    elseif contains(animal,'PMA41')
         electrodeType = 'Buzsaki64';
     end
 end
@@ -76,12 +70,21 @@ end
 % Check electrode 
 electrodeTypes = {'poly2-5mm','poly2-6mm','Buzsaki64'};
 if isempty(electrodeType)
-    [indx,tf] = listdlg('PromptString','Choose an electrode type',...
-    'ListString',electrodeTypes, 'SelectionMode','single');
-    
-    assert(tf,'No electrode type chosen, cannot proceed.');
-    
-    electrodeType = electrodeTypes{indx};
+    if interactive
+        [indx,tf] = listdlg('PromptString','Choose an electrode type',...
+        'ListString',electrodeTypes, 'SelectionMode','single');
+        if tf
+            electrodeType = electrodeTypes{indx};
+        else
+            assert(tf,'No electrode type chosen, cannot proceed.');
+            electrode = [];
+            return             
+        end
+    else
+        warning('No electrode type found...');
+        electrode = [];
+        return
+    end
 end
 
 % Check for longer string
@@ -210,7 +213,7 @@ switch lower(electrodeType)
 %         13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,1,2,...
 %         3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,  ...
 %         26,27,28,29,30,31,32];
-%     electrode.xcoords = [8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
+%     electrode.xcoord = [8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
 %         8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,    ...
 %         -8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
 %         0,0,158.66,141.34,158.66,141.34,158.66,141.34,158.66, 141.34,   ...
@@ -238,7 +241,7 @@ switch lower(electrodeType)
 %         1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,...
 %         1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,...
 %         1041.34,1058.66,1041.34,1058.66,1041.34,1050,1050];
-%     electrode.ycoords = [35,45,55,65,75,85,95,105,115,125,135,145,155,  ...
+%     electrode.ycoord = [35,45,55,65,75,85,95,105,115,125,135,145,155,  ...
 %         165,175,185,195,205,215,225,235,245,255,265,275,285,295,305,315,...
 %         325,425,525,35,45,55,65,75,85,95,105,115,125,135,145,155,165,175,...
 %         185,195,205,215,225,235,245,255,265,275,285,295,305,315,325,525 ...
@@ -361,7 +364,7 @@ switch lower(electrodeType)
 % %         13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,1,2,...
 % %         3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,  ...
 % %         26,27,28,29,30,31,32];
-% %     electrode.xcoords = [8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
+% %     electrode.xcoord = [8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
 % %         8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,    ...
 % %         -8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,8.66,-8.66,   ...
 % %         0,0,158.66,141.34,158.66,141.34,158.66,141.34,158.66, 141.34,   ...
@@ -389,7 +392,7 @@ switch lower(electrodeType)
 % %         1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,...
 % %         1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,1041.34,1058.66,...
 % %         1041.34,1058.66,1041.34,1058.66,1041.34,1050,1050];
-% %     electrode.ycoords = [35,45,55,65,75,85,95,105,115,125,135,145,155,  ...
+% %     electrode.ycoord = [35,45,55,65,75,85,95,105,115,125,135,145,155,  ...
 % %         165,175,185,195,205,215,225,235,245,255,265,275,285,295,305,315,...
 % %         325,425,525,35,45,55,65,75,85,95,105,115,125,135,145,155,165,175,...
 % %         185,195,205,215,225,235,245,255,265,275,285,295,305,315,325,525 ...
@@ -454,22 +457,41 @@ if drawElectrode
         fig = figure;
         handle = axes(fig);
     end
+         
     electrodePlot = scatter(handle, electrode.xcoords(electrode.connected),...
         electrode.ycoords(electrode.connected), 30, ...
         electrode.kcoords(electrode.connected),'filled');
     % Colours signify groups for spike sorting
     
     if labels
-        hold on
-        for j = find(electrode.connected)
-            if mod(electrode.xcoords(j),200) < 25
-                electrode.xlabel(j) = electrode.xcoords(j) + 15;
-            else
-                electrode.xlabel(j) = electrode.xcoords(j) - 50;
-            end
-            electrode.ylabel(j) = electrode.ycoords(j);
+        if zeroIndex
+            labelText = cellstr(num2str([electrode.Number]' - 1));
+        else
+            labelText = cellstr(num2str([electrode.Number]'));
         end
-        text(electrode.xlabel, electrode.ylabel,cellstr(num2str(electrode.Number')))
+        hold on
+        % Need to work out which are on the left of the shank and which are
+        % on the right
+        shanks = unique(electrode.Shank);
+        for shankI = 1:length(shanks)
+            shankIdx = find(electrode.Shank == shanks(shankI));
+            % Find unique X Positions
+            xPlaces = unique(electrode.xcoords(shankIdx));
+            midX = median(xPlaces);
+            for j = 1:length(shankIdx)
+                if electrode.xcoords(shankIdx(j)) <= midX
+                    electrode.xLabel(shankIdx(j)) = ...
+                        electrode.xcoords(shankIdx(j)) - 30;
+                else
+                    electrode.xLabel(shankIdx(j)) = ...
+                        electrode.xcoords(shankIdx(j)) + 20;
+                end
+                electrode.ylabel(shankIdx(j)) = electrode.ycoords(shankIdx(j));
+            end
+        end
+        text(electrode.xLabel(electrode.connected), ...
+             electrode.ylabel(electrode.connected), ...
+             labelText(electrode.connected));
     end
 
     %     switch electrodeType
