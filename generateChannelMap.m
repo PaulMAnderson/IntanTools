@@ -34,6 +34,7 @@ addParameter(p, 'Labels', true, @islogical);
 addParameter(p, 'Handle',[], @ishandle);
 addParameter(p, 'ZeroIndex',false, @islogical);
 addParameter(p, 'Interactive', true, @islogical);
+addParameter(p, 'Scalar', true, @islogical);
 
 parse(p, varargin{:});
 
@@ -46,6 +47,7 @@ labels          = p.Results.Labels;
 handle          = p.Results.Handle;
 zeroIndex       = p.Results.ZeroIndex;
 interactive     = p.Results.Interactive;
+scalar          = p.Results.Scalar;
 
 clear p
 
@@ -64,11 +66,14 @@ if ~isempty(animal)
         electrodeType = 'Buzsaki64';
     elseif contains(animal,'PMA41')
         electrodeType = 'Buzsaki64';
+    elseif contains(animal,'PMA58')
+        electrodeType = 'A4-16-Poly2-5mm';
     end
 end
 
 % Check electrode 
-electrodeTypes = {'poly2-5mm','poly2-6mm','Buzsaki64'};
+electrodeTypes = {'poly2-5mm','poly2-6mm','Buzsaki64','A4-16-Poly2-5mm',...
+                  'Neuropixels2.1','Neuropixels2.4'};
 if isempty(electrodeType)
     if interactive
         [indx,tf] = listdlg('PromptString','Choose an electrode type',...
@@ -156,22 +161,34 @@ switch lower(electrodeType)
                 electrode.kcoords(chanCount) = electrode.Shank(chanCount) + 10;
             end
             electrode.connected(chanCount) = true;
+
+            % Specify size and shape
+            electrode.shape{chanCount} = 'rect';
+            electrode.shape_params(chanCount).width  = 10;
+            electrode.shape_params(chanCount).height = 16;
+
             chanCount = chanCount+1;
+
+            
         end     
     end
     
     electrode.name = 'A8x32-poly2-5mm-20s-150-160 IH256';
+    electrode.manufacturer = 'Neuronexus';
     
     % sort the electrode Data to start with electrode #1
-    electrode.chanMap   = electrode.chanMap(sortIndx);
-    electrode.Number    = electrode.Number(sortIndx);
-    electrode.Shank     = electrode.Shank(sortIndx);
-    electrode.Location  = electrode.Location(sortIndx);
-    electrode.xcoords   = electrode.xcoords(sortIndx);
-    electrode.ycoords   = electrode.ycoords(sortIndx);
-    electrode.SiteType  = electrode.SiteType(sortIndx);
-    electrode.kcoords   = electrode.kcoords(sortIndx);
-    electrode.connected = electrode.connected(sortIndx);
+    electrode.chanMap       = electrode.chanMap(sortIndx);
+    electrode.Number        = electrode.Number(sortIndx);
+    electrode.Shank         = electrode.Shank(sortIndx);
+    electrode.Location      = electrode.Location(sortIndx);
+    electrode.xcoords       = electrode.xcoords(sortIndx);
+    electrode.ycoords       = electrode.ycoords(sortIndx);
+    electrode.SiteType      = electrode.SiteType(sortIndx);
+    electrode.kcoords       = electrode.kcoords(sortIndx);
+    electrode.connected     = electrode.connected(sortIndx);
+    electrode.shape         = electrode.shape(sortIndx);
+    electrode.shape_params  = electrode.shape_params(sortIndx);
+
     % Not 100% sure this is correct...
     electrode.Connector(1:128)   = 1;
     electrode.Connector(129:256) = 2;
@@ -308,22 +325,31 @@ switch lower(electrodeType)
             % templates together
             electrode.kcoords(chanCount) = electrode.Shank(chanCount);
             electrode.connected(chanCount) = true;
+
+            % Shape
+            electrode.shape{chanCount} = 'circle';
+            electrode.shape_params(chanCount).radius = 6;
+
+
             chanCount = chanCount+1;
         end     
     end
        
     electrode.name = 'A8x32-poly2-6mm-30s-200-121 IH256';
+    electrode.manufacturer = 'Neuronexus';
     
     % sort the electrode Data to start with electrode #1
-    electrode.chanMap   = electrode.chanMap(sortIndx);
-    electrode.Number    = electrode.Number(sortIndx);
-    electrode.Shank     = electrode.Shank(sortIndx);
-    electrode.Location  = electrode.Location(sortIndx);
-    electrode.xcoords   = electrode.xcoords(sortIndx);
-    electrode.ycoords   = electrode.ycoords(sortIndx);
-    electrode.SiteType  = electrode.SiteType(sortIndx);
-    electrode.kcoords   = electrode.kcoords(sortIndx);
-    electrode.connected = electrode.connected(sortIndx);
+    electrode.chanMap       = electrode.chanMap(sortIndx);
+    electrode.Number        = electrode.Number(sortIndx);
+    electrode.Shank         = electrode.Shank(sortIndx);
+    electrode.Location      = electrode.Location(sortIndx);
+    electrode.xcoords       = electrode.xcoords(sortIndx);
+    electrode.ycoords       = electrode.ycoords(sortIndx);
+    electrode.SiteType      = electrode.SiteType(sortIndx);
+    electrode.kcoords       = electrode.kcoords(sortIndx);
+    electrode.connected     = electrode.connected(sortIndx);
+    electrode.shape         = electrode.shape(sortIndx);
+    electrode.shape_params  = electrode.shape_params(sortIndx);
     % electrode.Connector = electrode.Connector(sortIndx);
     % Not 100% sure this is correct...
     electrode.Connector(1:128)   = 1;
@@ -440,8 +466,67 @@ switch lower(electrodeType)
     electrode.kcoords   = electrode.Shank;
     electrode.connected = true(1,64);
     electrode.connected(exclude) = false;
+   % Specify size and shape
+    electrode.shape{1:64} = 'rect';
+    electrode.shape_params(1:64).width  = 10;
+    electrode.shape_params(1:64).height = 16;
+
     electrode.Intan = electrode.chanMap - 1;
     electrode.name = 'Buzsaki64 H64LP';
+    electrode.manufacturer = 'Neuronexus';
+
+case 'neuropixels2.4'
+    % Each shank has 1280 sites, seperated by 32 um in the x direction
+    % and 15 in the y, arrangd in a grid pattern
+    nChans = 1280*4;
+    electrode.chanMap   = 1:nChans;
+    electrode.Number    = electrode.chanMap;
+    % This is the numbers as used on the NeuroNexus Probe Sheet
+    electrode.Shank     = [zeros(1,1280) ones(1,1280) ones(1,1280)*2 ones(1,1280)*3];
+    electrode.Location  = [1:1280 1:1280 1:1280 1:1280];
+    shankX = repmat([8 40],1,1280/2);
+    electrode.xcoords   = [shankX shankX + 250 shankX + 500 shankX + 750];
+    shankY = sort([0:15:(15*(1280/2-1)) 0:15:(15*(1280/2-1))]);
+    electrode.ycoords   = [shankY shankY shankY shankY];
+    electrode.SiteType  = repmat({'Normal'},1,nChans);
+    electrode.kcoords   = electrode.Shank;
+    electrode.connected = true(1,nChans);
+    electrode.connected(exclude) = false;
+    electrode.shape = repmat({'square'},1,nChans);
+    electrode.shape_params(1:nChans) = struct('width',12);
+    electrode.name = 'Neuropixels 2.4';
+    electrode.manufacturer = 'IMEC';
+
+    case 'neuropixels2.1'
+    % 4 shanks seperated by 250 um
+    % Each shank has 1280 sites, seperated by 32 um in the x direction
+    % and 15 in the y, arrangd in a grid pattern
+    nChans = 1280;
+    electrode.chanMap   = 1:nChans;
+    electrode.Number    = electrode.chanMap;
+    % This is the numbers as used on the NeuroNexus Probe Sheet
+    electrode.Shank     = zeros(1,1280);
+    electrode.Location  = 1:1280;
+    shankX = repmat([8 40],1,1280/2);
+    electrode.xcoords   = shankX;
+    shankY = sort([0:15:(15*(1280/2-1)) 0:15:(15*(1280/2-1))]);
+    electrode.ycoords   = shankY;
+    electrode.SiteType  = repmat({'Normal'},1,nChans);
+    electrode.kcoords   = electrode.Shank;
+    electrode.connected = true(1,nChans);
+    electrode.connected(exclude) = false;
+    electrode.shape{1:nChans} = 'square';
+    electrode.shape_params(1:nChans).width = 12;
+    electrode.name = 'Neuropixels 2.1';
+    electrode.manufacturer = 'IMEC';
+
+    case 'a4-16-poly2-5mm'
+        electrode = load('A4x16-Poly2-5mm-20s-lin-160_kilosortChanMap.mat');
+        nChans = length(electrode.chanMap);
+        electrode.manufacturer = 'Neuronexus';
+        electrode.shape{1:nChans} = 'rect';        
+        electrode.shape_params(1:nChans).width = 10;
+        electrode.shape_params(1:nChans).height = 16;
 
     otherwise 
         warning(['Provided electrode type not found...'...
@@ -502,3 +587,21 @@ if drawElectrode
     hold off
 end
     
+
+if ~scalar % Convert to non scalar 
+
+    try
+        temp  = rmfield(electrode,{'name','SiteType'});
+        tempCell  = struct2cell(temp);
+        tempCell  = num2cell(cat(3,tempCell{:}));
+        tempStruct = cell2struct(tempCell,fieldnames(temp),3); 
+    
+        for j = 1:length(tempStruct)
+            tempStruct(j).name = electrode.name;
+            tempStruct(j).SiteType = electrode.SiteType{j};
+        end
+    
+        electrode = tempStruct;
+    end
+
+end
