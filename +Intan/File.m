@@ -10,16 +10,24 @@ classdef File
         NumChannels  % Number of Channels
         Bytes        % File size (in bytes)
         SampleRate   % Sample Rate of Amplifier Channels
-        Samples      % Number of Samples of Amplifier Channels
+        NumSamples      % Number of Samples of Amplifier Channels
         Length       % Length of Recording in Seconds
         Precision    % Range/precision Intan system: 0.195uV/bit i.e. data in microvolts = int16 * 0.195
+        Offset       % Any offset needed to be applied to raw data
         Unit         % Unit of converted data
         Impedances   % Impedance measurement of each channel (if present)
         FullPath     % Full path to file
         MemoryMap    % Memory map struct
+        % Data         % Memory mapped or actual data
+        Scale        % Function to convert raw data to scaled 
     end
 
-    methods
+    properties (Hidden)
+        cleanup
+    end
+
+    methods ( Access = 'public' )
+
         function self = File(filePath,header) % Constructor
 
             if nargin == 0 || isempty(filePath)
@@ -29,8 +37,12 @@ classdef File
             end
 
             if nargin == 1 || isempty(header)
-                % First try the existing filepath
+                % First try the existing filepath                
                 rootPath = fileparts(filePath);
+                if isempty(rootPath)
+                    temp = dir(filePath);
+                    rootPath = temp.folder;
+                end
                 headerPath = [rootPath filesep 'info.rhd'];
                 if ~exist(headerPath,'file')
                     [headerName, headerDir, ~] = ...
@@ -48,6 +60,8 @@ classdef File
 
             self = self.processFile(filePath, header);
 
+            % self.cleanup = onCleanup(@()delete(self));
+
         end
         function self = processFile(self, filePath, header)
             self.FullPath = filePath;
@@ -61,12 +75,15 @@ classdef File
                     self.NumChannels = nan;
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = nan;
-                    self.Samples     = nan;
+                    self.NumSamples     = nan;
                     self.Length      = nan;
                     self.Precision   = nan;
+                    self.Offset      = nan;
                     self.Unit        = '';
                     self.Impedances  = '';
-                    self.MemoryMap   = '';
+                    self.MemoryMap   = [];
+                    % self.Data        = loadIntanHeader(self.FullPath);
+                    self.Scale       = @(x)x;
                     
                 case 'amplifier.dat'
                     self.FileName    = 'amplifier.dat';
@@ -76,15 +93,18 @@ classdef File
                     self.NumChannels = length(header.amplifier_channels);
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.amplifier_sample_rate;
-                    self.Samples     = self.Bytes / (self.NumChannels * 2); % int16 = 2 bytes
-                    self.Length   = self.Samples/self.SampleRate;
+                    self.NumSamples   = self.Bytes / (self.NumChannels * 2); % int16 = 2 bytes
+                    self.Length      = self.NumSamples/self.SampleRate;
                     self.Precision   = 0.195;
+                    self.Offset      = 0;
                     self.Unit        = 'uV';
                     self.Impedances  = [header.amplifier_channels.electrode_impedance_magnitude];
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [self.NumChannels self.Samples], ...
+                                            [self.NumChannels self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
 
                 case 'analogin.dat'
                     self.FileName    = 'analogin.dat';
@@ -94,15 +114,18 @@ classdef File
                     self.NumChannels = length(header.board_adc_channels);
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.board_adc_sample_rate;
-                    self.Samples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
-                    self.Length   = self.Samples/self.SampleRate;
-                    self.Precision   = @(x)(x - 32768) * 0.0003125;
+                    self.NumSamples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
+                    self.Length      = self.NumSamples/self.SampleRate;
+                    self.Precision   = 0.0003125;
+                    self.Offset      = -32768;
                     self.Unit        = 'V';
                     self.Impedances  = [header.board_adc_channels.electrode_impedance_magnitude];
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [self.NumChannels self.Samples], ...
+                                            [self.NumChannels self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
 
                 case 'auxiliary.dat'
                     self.FileName    = 'auxiliary.dat';
@@ -112,15 +135,19 @@ classdef File
                     self.NumChannels = length(header.aux_input_channels);
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.aux_input_sample_rate;
-                    self.Samples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
-                    self.Length   = self.Samples/self.SampleRate;
+                    self.NumSamples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
+                    self.Length      = self.NumSamples/self.SampleRate;
                     self.Precision   = 0.0000374; % in uV
+                    self.Offset      = 0;
                     self.Unit        = 'V';
                     self.Impedances  = [header.aux_input_channels.electrode_impedance_magnitude];
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [self.NumChannels self.Samples], ...
+                                            [self.NumChannels self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
+
                 case 'digitalin.dat'
                     self.FileName    = 'digitalin.dat';
                     self.SignalType  = 'digital';
@@ -129,15 +156,18 @@ classdef File
                     self.NumChannels = length(header.board_dig_in_channels);
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.board_dig_in_sample_rate;
-                    self.Samples     = self.Bytes / 2; %  % uint16 = 2 bytes, all digital channels are a single 16 bit value
-                    self.Length   = self.Samples/self.SampleRate;
-                    self.Precision   = nan;
+                    self.NumSamples     = self.Bytes / 2; %  % uint16 = 2 bytes, all digital channels are a single 16 bit value
+                    self.Length      = self.NumSamples/self.SampleRate;
+                    self.Precision   = 1;
+                    self.Offset      = 0;
                     self.Unit        = 'Binary';
                     self.Impedances  = [header.board_dig_in_channels.electrode_impedance_magnitude];
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [1 self.Samples], ...
+                                            [1 self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
 
                 case 'supply.dat'
                     self.FileName    = 'supply.dat';
@@ -147,15 +177,19 @@ classdef File
                     self.NumChannels = length(header.supply_voltage_channels);
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.supply_voltage_sample_rate;
-                    self.Samples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
-                    self.Length   = self.Samples/self.SampleRate;
+                    self.NumSamples     = self.Bytes / (self.NumChannels * 2); %  % uint16 = 2 bytes
+                    self.Length      = self.NumSamples/self.SampleRate;
                     self.Precision   = 0.0000748;
+                    self.Offset      = 0;
                     self.Unit        = 'V';
                     self.Impedances  = [header.supply_voltage_channels.electrode_impedance_magnitude];
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [1 self.Samples], ...
+                                            [1 self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
+
                 case 'time.dat'
                     self.FileName    = 'time.dat';
                     self.SignalType  = 'time';
@@ -164,130 +198,133 @@ classdef File
                     self.NumChannels = 1;
                     self.Bytes       = fileStruct.bytes;
                     self.SampleRate  = header.frequency_parameters.amplifier_sample_rate;
-                    self.Samples     = self.Bytes / 4; %  % int32 = 4 bytes
-                    self.Length   = self.Samples/self.SampleRate;
-                    self.Precision   = '';
+                    self.NumSamples     = self.Bytes / 4; %  % int32 = 4 bytes
+                    self.Length      = self.NumSamples/self.SampleRate;
+                    self.Precision   = 1;
+                    self.Offset      = 0;
                     self.Unit        = 'Samples';
                     self.MemoryMap   =  memmapfile(self.FullPath, 'Format',...
                                             {self.DataType, ...
-                                            [1 self.Samples], ...
+                                            [1 self.NumSamples], ...
                                             'data'});
+                    % self.Data        = self.MemoryMap.Data.data;
+                    self.Scale       = @(x)double(x)*self.Precision + self.Offset;
             end           
         end
 
-        function [data, timeStamps] = loadData(self, varargin)
-             switch self.SignalType
+
+        function [data, timestamps] = getTimes(self, varargin)
+            % Function to enable easy access to samples with conversion to
+            % volts and time indexing
+
+            %% Input parsing
+            p = inputParser; % Create object of class 'inputParser'
+
+            chanCheck = @(x)validateattributes(x,{'numeric'},...
+                {'integer','positive','<=',self.NumChannels});
+
+            addParameter(p, 'startTime', 0, @isnumeric);
+            addParameter(p, 'endTime', [], @isnumeric)
+            addParameter(p, 'channels', 1, chanCheck)
+            
+            parse(p, varargin{:});
+            
+            startTime = p.Results.startTime;
+            endTime   = p.Results.endTime;
+            channels  = p.Results.channels;
+            
+            if isempty(channels)
+                channels = 1;
+            end
+
+            if isempty(endTime)
+                % Get 10 seconds of recording if not specified
+                points = 10 - (1/self.SampleRate);
+                endTime = startTime + points;
+            end
+            if endTime > self.Length - 1/self.SampleRate
+                endTime = self.Length - 1/self.SampleRate;
+            end
+
+            % Slow method to get samples
+            % ts = 0:1/self.SampleRate:self.Length-(1/self.SampleRate);
+            % assert(length(ts) == self.NumSamples,'timestamp calculation error!');
+            % ts = ts(:);
+            % tIdx = dsearchn(ts,[startTime; endTime]);
+
+            % Faster method
+            % We add a single sample as we assume timepoint 1 = 0;
+            tIdx(1) = floor(startTime * self.SampleRate + 1);
+            tIdx(2) = floor(endTime * self.SampleRate + 1);
+
+            data = self.getSamples('startSample',tIdx(1),'endSample',tIdx(2),...
+                'channels',channels);
+            
+            if nargout > 1
+                timestamps = tIdx(1)/self.SampleRate:1/self.SampleRate:tIdx(2)/self.SampleRate;
+            end
+
+        end
+
+        function [data, timestamps] = getSamples(self, varargin)
+            % Function to enable easy access to samples with conversion to
+            % volts and simplified indexing
+
+            % Input parsing
+            p = inputParser; % Create object of class 'inputParser'
+
+            intCheck = @(x)validateattributes(x,{'numeric'},{'integer','positive'});
+            chanCheck = @(x)validateattributes(x,{'numeric'},...
+                {'integer','positive','<=',self.NumChannels});
+
+            addParameter(p, 'startSample', 1, intCheck);
+            addParameter(p, 'endSample', [], intCheck);
+            addParameter(p, 'channels', 1, chanCheck);
+            addParameter(p, 'scale',true,@logical);
+            
+            parse(p, varargin{:});
+            
+            startSample = p.Results.startSample;
+            endSample   = p.Results.endSample;
+            channels    = p.Results.channels;
+            scale       = p.Results.scale;
+            
+            if isempty(endSample)
+                % Get 10 seconds of recording if not specified
+                points = self.SampleRate * 10 - 1;
+                endSample = startSample + points;
+            end
+            if endSample > self.NumSamples
+                endSample = self.NumSamples;
+            end
+
+            % Get samples
+            switch self.SignalType
+                case 'digital'
+                    digData = self.MemoryMap.Data.data(1,startSample:endSample);
+                    data = zeros(length(channels),length(digData));
+                    chanN = channels - 1;
+                    for chanI = 1:length(chanN)
+                        data(chanI,:) = (bitand(digData, 2^chanN(chanI)) > 0); % ch has a value of 0-15 here
+                    end
                 case 'header'
+                    disp('No Samples in Header...')                    
                     data = loadIntanHeader(self.FullPath);
                     return
-             end
-            
-            %% Parse Inputs
-            p = inputParser;
-            p.addParameter('Channel',[],...
-                @(x)validateattributes(x,{'numeric'},{'integer','>',0,'<=',self.NumChannels}));
-            p.addParameter('StartTime',0,@isnumeric);
-            p.addParameter('EndTime',[],@isnumeric);
-            p.addParameter('StartSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
-            p.addParameter('EndSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
-            p.addParameter('Length',[],@isnumeric);
-            p.addParameter('Timestamps','seconds',@ischar);
-            % p.addParameter('Format','double',@ischar);
-
-            p.parse(varargin{:});
-
-            channel     = p.Results.Channel;
-            startTime   = p.Results.StartTime;
-            endTime     = p.Results.EndTime;
-            startSample = p.Results.StartSample;
-            endSample   = p.Results.EndSample;
-            recLength   = p.Results.Length;
-            timeFormat  = validatestring(p.Results.Timestamps,...
-                                         {'Seconds','Samples'});
-            % format      = validatestring(p.Results.Format,{'raw','single','double',...
-            %     'int8', 'int16', 'int32', 'int64', ...
-            %     'uint8', 'uint16', 'uint32', 'uint64'});
-            % switch format
-            %     case 'raw'
-            %         format = self.DataFormat;
-            % end
-
-            % Calculate channels
-            if isempty(channel) & ~strcmp(self.SignalType,'digital')
-                channel = 1;
-                disp('No channel specified, taking first channel only');
+                otherwise
+                    data = self.MemoryMap.Data.data(channels,startSample:endSample);
             end
 
-            % Calculate Sample Start Idx
-            if isempty(startSample)
-                if isempty(startTime)
-                    startIdx = 1;
-                else
-                    startIdx = round(startTime * self.SampleRate);                    
-                end
-            else
-                startIdx = 1;
-            end
-            if startIdx < 1 
-                startIdx = 1;
-            end
-            assert(startIdx < self.Samples,'Start Point is after end of data');
+            if scale 
+                data = self.Scale(data);
+            end            
 
-            % Calculate Sample End Idx
-            if isempty(recLength)
-                if isempty(endSample)
-                    if isempty(endTime)
-                        disp('No end point specified, taking 10 minutes of data');                        
-                        endIdx = startIdx + (self.SampleRate * 60 * 60) - 1;
-                    else
-                        endIdx = floor(endTime * self.SampleRate);
-                    end
-                else
-                    endIdx = endSample;
-                end
-            else
-                endIdx = floor(startIdx + recLength*self.SampleRate - 1);
-            end
-            if endIdx > self.Samples
-                endIdx = self.Samples;
-                disp('End Point was after end of data, using last point in data...');
-            end
-            assert(endIdx ~= startIdx,'End Point and Start Point are the same');
-            
-            % Setup empty data 
-            data = zeros(length(channel),length(startIdx:endIdx),'double');
-                       
-            %% Create Timestamps
-            timeStamps = startIdx:endIdx;
-            if strcmp(timeFormat,'Seconds')
-                timeStamps = (timeStamps - 1) / self.SampleRate;
+            if nargout > 1
+                timestamps = startSample/self.SampleRate:1/self.SampleRate:endSample/self.SampleRate;
             end
 
-            %% Load Data
-            switch self.SignalType
-                case 'amplifier'
-                    data(:,:) = ...
-                        self.Precision * ...
-                        double(self.MemoryMap.Data.data(channel,startIdx:endIdx));
-                case 'analog'
-                    data(:,:) = self.Precision * ...
-                        double(self.MemoryMap.Data.data(channel,startIdx:endIdx));
-                case 'digital'                   
-                    digIn = self.MemoryMap.Data.data(startIdx:endIdx);
-                    % Parse each channel of the digital input data
-                    data = zeros(self.NumChannels,length(digIn));
-                    if isempty(channels) 
-                        chanN = 0:numDigitalInChans-1;
-                    else
-                        chanN = channels - 1;
-                    end
-                    for chanI = chanN
-                        data(chanI,:) = (bitand(digitalInWord, 2^chanID) > 0); % ch has a value of 0-15 here
-                    end
-                case 'time'
-                    data = timeStamps;
-            end
         end
+
 
         function combine(self, other, outPath, chunkSize)
 
@@ -420,4 +457,13 @@ classdef File
         end
 
     end
+
+    % methods ( Access = 'private' )
+    %     function self = delete( self )
+    %         disp('delete was called');
+    %         self.Data = []; 
+    %         self.MemoryMap = [];
+    %     end
+    % end % private methods
+
 end

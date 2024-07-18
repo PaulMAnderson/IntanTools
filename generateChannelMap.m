@@ -467,9 +467,8 @@ switch lower(electrodeType)
     electrode.connected = true(1,64);
     electrode.connected(exclude) = false;
    % Specify size and shape
-    electrode.shape{1:64} = 'rect';
-    electrode.shape_params(1:64).width  = 10;
-    electrode.shape_params(1:64).height = 16;
+    electrode.shape(1:64) = {'rect'};
+    electrode.shape_params(1:64)  = struct('width',10,'height',16);
 
     electrode.Intan = electrode.chanMap - 1;
     electrode.name = 'Buzsaki64 H64LP';

@@ -7,7 +7,7 @@ classdef Rec
       NumChannels        % Number of Amplifier Channels
       Impedances         % Impedance of Amplifier Channels
       SampleRate         % Sample Rate of Amplifier Channels
-      Samples            % Number of Samples of Amplifier Channels
+      NumSamples         % Number of Samples of Amplifier Channels
       Length             % Length of Recording in Seconds
       NumDigitalChannels % Number of Active Digital Channels (Always 16 bit data format)
       NumAnalogChannels  % Number of Active Analog Channels      
@@ -72,7 +72,7 @@ classdef Rec
                 self.NumChannels        = ampFile.NumChannels;
                 self.Impedances         = ampFile.Impedances;
                 self.SampleRate         = ampFile.SampleRate;
-                self.Samples            = ampFile.Samples;
+                self.NumSamples         = ampFile.NumSamples;
                 self.Length             = ampFile.Length;
             end
             digFile = self.Files(strcmp({self.Files.SignalType},'digital'));
@@ -297,18 +297,14 @@ classdef Rec
 
        end % end eventTimes
 
-       function [data, timeStamps] = loadData(self, varargin)
+      
+       function [data, timeStamps] = getTimes(self, varargin)
            %% Parse Inputs
             p = inputParser;
             p.addParameter('Signal','amplifier',@ischar);
             p.addParameter('Channel',[],@isnumeric);
             p.addParameter('StartTime',0,@isnumeric);
             p.addParameter('EndTime',[],@isnumeric);
-            p.addParameter('StartSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
-            p.addParameter('EndSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
-            p.addParameter('Length',[],@isnumeric);
-            p.addParameter('Timestamps','seconds',@ischar);
-            % p.addParameter('Format','double',@ischar);
 
             p.parse(varargin{:});
 
@@ -318,14 +314,6 @@ classdef Rec
             channel     = p.Results.Channel;
             startTime   = p.Results.StartTime;
             endTime     = p.Results.EndTime;
-            startSample = p.Results.StartSample;
-            endSample   = p.Results.EndSample;
-            recLength   = p.Results.Length;
-            timeFormat  = validatestring(p.Results.Timestamps,...
-                                         {'Seconds','Samples'});
-            % format      = validatestring(p.Results.Format,{'raw','single','double',...
-            %     'int8', 'int16', 'int32', 'int64', ...
-            %     'uint8', 'uint16', 'uint32', 'uint64'});
 
             if any(strcmp(signal,{'data','rec','recording'}))
                 signal = 'amplifier';
@@ -333,10 +321,36 @@ classdef Rec
 
             file = self.Files(strcmp(signal,{self.Files.SignalType}));            
 
-            [data,timeStamps] = file.loadData('Channel',channel,...
-                'StartTime',startTime,'EndTime',endTime,'startSample',...
-                startSample,'EndSample',endSample,'Length',recLength,...
-                'Timestamps',timeFormat);
+            [data,timeStamps] = file.getTimes('Channel',channel,...
+                'StartTime',startTime,'EndTime',endTime);
+
+       end
+
+        function [data, timeStamps] = getSamples(self, varargin)
+           %% Parse Inputs
+            p = inputParser;
+            p.addParameter('Signal','amplifier',@ischar);
+            p.addParameter('Channel',[],@isnumeric);
+            p.addParameter('StartSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
+            p.addParameter('EndSample',[],@(x)validateattributes(x,{'numeric'},{'integer'}));
+      
+            p.parse(varargin{:});
+
+            signal      = validatestring(p.Results.Signal,...
+                {'data','rec','recording',...
+                'amplifier','analog','digital','header','time'});
+            channel     = p.Results.Channel;
+            startSample = p.Results.StartSample;
+            endSample   = p.Results.EndSample;
+
+            if any(strcmp(signal,{'data','rec','recording'}))
+                signal = 'amplifier';
+            end
+
+            file = self.Files(strcmp(signal,{self.Files.SignalType}));            
+
+            [data,timeStamps] = file.getSamples('Channel',channel,...
+                'startSample',startSample,'EndSample',endSample);
 
 
        end
@@ -377,5 +391,15 @@ classdef Rec
            end
 
        end
+
+       function delete(self)
+           % Destructor to gracefully remove the memorymapped data before
+           % the memmap object so as to not load anything into memory
+           for j = 1:length(self.Files)
+               delete(self.Files(j));
+           end
+       end
+
+
    end
 end
